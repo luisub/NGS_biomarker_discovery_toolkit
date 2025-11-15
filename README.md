@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 
-# Description:
+## Description:
 This code is based on [Circulating tumor DNA sequencing in colorectal cancer patients treated with first-line chemotherapy with anti-EGFR.](https://www.nature.com/articles/s41598-021-95345-4). 
 
 This code aims to identify potential variant allele frequency changes that serve as biomarkers for monitoring treatment response and tumor evolution.
@@ -13,12 +13,12 @@ This code aims to identify potential variant allele frequency changes that serve
 <img src="docs/image.png" alt="VCA pipeline" width="900" />
 
 
-# Pipeline is located in:
+## Pipeline source code:
 
 **[Source Code](vca_pipeline.ipynb)** - Jupyter notebook containing the VCA pipeline.
 
 
-# Installation
+## Installation
 
 To install this repository and all its dependencies, we recommend using [Anaconda](https://www.anaconda.com).
 
