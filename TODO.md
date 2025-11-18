@@ -39,11 +39,11 @@
 ## Second Priority
 
 ### Clinical Translation - PCR Diagnostic Development
-- [ ] Task: Design PCR primers targeting the most common KRAS mutation hotspots.
+- [X] Task: Design PCR primers targeting the most common KRAS mutation hotspots.
 - [ ] Task: Develop multiplex PCR strategy to detect multiple variants simultaneously.
 - [ ] Task: Optimize PCR conditions for low-input ctDNA samples.
 - [ ] Task: Compare cost-effectiveness of PCR vs NGS for clinical monitoring.
-- [ ] Task: Create standard operating procedure (SOP) for PCR-based diagnostic.
+- [X] Task: Create standard operating procedure (SOP) for PCR-based diagnostic.
 
 ## Long term goals
 
