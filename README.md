@@ -15,7 +15,7 @@ This code aims to identify potential variant allele frequency changes that serve
 <img src="docs/image.png" alt="VCA pipeline" width="900" />
 
 
-## Pipeline source code:
+## Pipeline to detect variant allele frequencies in Genomic regions:
 
 **[Source Code](vca_pipeline.ipynb)** - Jupyter notebook containing the VCA pipeline.
 
