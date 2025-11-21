@@ -1,0 +1,108 @@
+# VCA Pipeline Configuration File
+# Variant Calling Analysis for Circulating Tumor DNA
+#
+# This configuration file controls all parameters for the NGS variant calling pipeline.
+# Modify values below to customize the analysis for your specific requirements.
+
+# =============================================================================
+# PATH CONFIGURATION
+# =============================================================================
+paths:
+  # Base directory for all pipeline operations
+  # All data will be stored in data_cluster/ subdirectory within this path
+  # For cluster_scripts/ folder: use "../" to go up to repo root
+  base_dir: "../"
+
+# =============================================================================
+# DATA SOURCE
+# =============================================================================
+data_source:
+  # NCBI SRA BioProject ID for downloading sequencing data
+  # PRJNA714799: Circulating tumor DNA from colorectal cancer patients
+  bioproject_id: "PRJNA714799"
+  
+  # Optional: Filter to analyze only specific patient
+  # Set to null to process all patients in the bioproject
+  # Example: "CTC030" for single patient analysis
+  patient_id_filter: "CTC030"
+
+# =============================================================================
+# REFERENCE GENOME
+# =============================================================================
+reference_genome:
+  # Human reference genome GRCh38 (hg38)
+  # This is the latest human genome assembly from the Genome Reference Consortium
+  url: "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz"
+  
+  # Local filename for downloaded reference
+  filename: "GRCh38_no_alt.fna.gz"
+
+# =============================================================================
+# PROCESSING PARAMETERS
+# =============================================================================
+processing:
+  # Number of CPU threads to use for parallel processing
+  # BWA-MEM alignment and other steps will use this setting
+  # Recommended: Set to number of available CPU cores minus 1
+  threads: 4
+
+# =============================================================================
+# VARIANT CALLING CONFIGURATION
+# =============================================================================
+variant_calling:
+  # Target gene for variant analysis
+  # KRAS is a commonly mutated oncogene in colorectal cancer
+  target_gene:
+    name: "KRAS"
+    
+    # Genomic coordinates (GRCh38/hg38 assembly)
+    chromosome: "chr12"
+    start: 25200000
+    end: 25250000
+    
+    # Alternative coordinates for different genome builds:
+    # GRCh37/hg19: chr12:25,358,179-25,403,854
+    # GRCh38/hg38: chr12:25,205,246-25,250,936
+  
+  # Quality filters for variant detection
+  filters:
+    # Minimum read depth at variant position
+    # Higher values increase confidence but may miss low-coverage variants
+    # Recommended: 20 for ctDNA analysis
+    min_depth: 20
+    
+    # Minimum allele frequency (0.0 to 1.0)
+    # Lower values detect rarer variants but increase false positives
+    # 0.1 = 10% minimum variant allele frequency
+    min_allele_frequency: 0.1
+
+# =============================================================================
+# OUTPUT CONFIGURATION
+# =============================================================================
+output:
+  # All results will be saved in data_cluster/results/
+  # Generated files:
+  #   - all_variants.csv: Complete variant table
+  #   - candidate_variant.csv: Selected candidate for ddPCR assay
+  #   - summary_stats.txt: Analysis summary statistics
+  #   - vaf_over_time.png: Variant allele frequency plot
+  
+  # Save intermediate files (SAM, unsorted BAM, etc.)
+  # Set to false to save disk space
+  keep_intermediate_files: false
+
+# =============================================================================
+# PIPELINE EXECUTION OPTIONS
+# =============================================================================
+execution:
+  # Skip steps if output files already exist
+  # Set to false to force re-run all steps
+  skip_existing: true
+  
+  # Continue pipeline if individual samples fail
+  # Recommended: true for batch processing
+  continue_on_error: true
+  
+  # Verbose logging
+  # Set to true for detailed progress information
+  verbose: false
