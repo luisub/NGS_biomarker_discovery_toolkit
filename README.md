@@ -29,7 +29,7 @@ This code aims to identify potential variant allele frequency changes that serve
 - Limit of detection (LOD) calculations (down to 0.01% VAF)
 - 1D Amplitude plots
 
-<img src="docs/ddPCR.png" alt="VCA pipeline" width="600" />
+<img src="dev/ddpcr_publication_vaf_5.0.png" alt="VCA pipeline" width="600" />
 
 
 ## PCR Assay Design
