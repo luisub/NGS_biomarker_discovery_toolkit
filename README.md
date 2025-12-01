@@ -64,7 +64,7 @@ To install this repository and all its dependencies, we recommend using [Anacond
 
 * Clone the repository:
 ```sh
-git clone https://github.com/luisub/circulating_tumor_DNA_analysis.git
+git clone https://github.com/luisub/NGS_biomarker_discovery_toolkit.git
 ```
 
 * Create a virtual environment from the `environment.yml` file and activate it:
