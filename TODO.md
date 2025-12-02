@@ -21,6 +21,7 @@
 - [X] Task: Create command-line interface (CLI) for BASH execution.
 - [X] Task: Add configuration file support YAML for pipeline parameters.
 - [X] Task: Implement proper error handling and logging throughout pipeline.
+- [X] Task: Restructure repository layout (pipelines, config, src).
 - [ ] Task: Add Nextflow workflow for reproducibility.
 
 ### Scalability

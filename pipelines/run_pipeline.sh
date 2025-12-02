@@ -3,7 +3,7 @@
 
 set -e
 
-CONFIG_FILE="pipeline_config.yml"
+CONFIG_FILE="../config/pipeline_config.yml"
 
 if [ $# -eq 1 ]; then
     CONFIG_FILE="$1"

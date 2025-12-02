@@ -5,13 +5,13 @@
 ### Make Script Executable
 
 ```bash
-cd cluster_scripts
+cd pipelines
 chmod +x run_vca_pipeline.py
 ```
 
 ### Configure Pipeline
 
-Edit `pipeline_config.yml` to customize:
+Edit `config/pipeline_config.yml` to customize:
 - Patient ID filter
 - Number of threads
 - Target gene coordinates
@@ -20,11 +20,11 @@ Edit `pipeline_config.yml` to customize:
 ### Run Pipeline
 
 ```bash
-# From cluster_scripts/ directory
-python run_vca_pipeline.py pipeline_config.yml
+# From pipelines/ directory
+python run_vca_pipeline.py ../config/pipeline_config.yml
 
 # Or if made executable:
-./run_vca_pipeline.py pipeline_config.yml
+./run_vca_pipeline.py ../config/pipeline_config.yml
 ```
 
 ## Directory Structure
@@ -33,9 +33,11 @@ After running the pipeline, your structure will be:
 
 ```
 NGS_dPCR_biomarker_toolkit/
-├── cluster_scripts/
+├── pipelines/
 │   ├── run_vca_pipeline.py          # Main pipeline script
-│   └── pipeline_config.yml           # Configuration file
+│   └── run_pipeline.sh              # Launcher script
+├── config/
+│   └── pipeline_config.yml          # Configuration file
 ├── data_cluster/                     # All data stored here
 │   ├── raw/                          # FASTQ files from SRA
 │   ├── reference/                    # GRCh38 reference genome
@@ -148,6 +150,6 @@ filters:
 #SBATCH --time=12:00:00
 
 conda activate vca_env
-cd cluster_scripts
-python run_vca_pipeline.py pipeline_config.yml
+cd pipelines
+python run_vca_pipeline.py ../config/pipeline_config.yml
 ```

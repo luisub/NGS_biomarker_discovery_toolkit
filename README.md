@@ -79,17 +79,20 @@ ctDNA_analysis - Code Architecture/
 │   ├── main_code.py                                          # (development)
 │   └── 📁 utils/                                             # Utility functions
 │       ├── imports.py                                        # Central import management (development)
-├── 📁 pipelines/                                             # (development) Complete analysis workflows
-│   ├── single_patient_pipeline.py                            # End-to-end single patient analysis (development)
-│   └── batch_processing_pipeline.py                          # Multi-patient batch processing (planned)
+├── 📁 pipelines/                                             # Complete analysis workflows
+│   ├── run_vca_pipeline.py                                   # Main pipeline script
+│   └── run_pipeline.sh                                       # Pipeline launcher script
+├── 📁 config/                                                # Configuration files
+│   └── pipeline_config.yml                                   # Pipeline configuration
 ├── 📁 dev/                                                   # (development) Simulation analysis
 │   ├── pcr_design_simulation.ipynb                           # Simulating PCR diagnostic assay (development)
 │   └── pcr_visualization.py                                  # Visualize PCR gel (development)
 ├── 📁 notebooks/                                             # (Future re-organization) Jupyter notebooks 
 │   ├── variant_calling_analysis_cleaned.ipynb                # Main analysis notebook
 ├── 📁 docs/                                                  # Documentation
-│   ├── user_guide.md                                         # Complete user manual (planned)
-│   ├── TODO.md                                               # Development roadmap 
+│   ├── pipeline_guide.md                                     # Complete user manual
+│   ├── user_guide.md                                         # (planned)
+│   └── TODO.md                                               # Development roadmap 
 ├── 📁 data/                                                  # Data directory (gitignored)
 │   ├── 📁 raw/                                               # Raw sequencing data (SRA downloads)
 │   ├── 📁 reference/                                         # Reference genomes (GRCh38)
