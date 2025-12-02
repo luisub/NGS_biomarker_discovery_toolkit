@@ -15,45 +15,6 @@ This code aims to identify potential variant allele frequency changes that serve
 <img src="docs/image.png" alt="VCA pipeline" width="900" />
 
 
-## Pipeline to detect variant allele frequencies in Genomic regions (NGS data):
-
-**[Source Code](vca_pipeline.ipynb)** - Jupyter notebook containing the VCA pipeline.
-
-
-## Droplet Digital PCR  (ddPCR) Assay Design
-
-**[ddPCR Design Notebook (development)](digital_PCR/dpcr_rare_mutation_detection.ipynb)** - Simulate Droplet Digital PCR assays for absolute quantification of ctDNA.
-
-- Allele-specific probe design (FAM/VIC dual-color assays)
-- Droplet partitioning simulation using Poisson statistics
-- Limit of detection (LOD) calculations (down to 0.01% VAF)
-- 1D Amplitude plots
-
-<img src="digital_PCR/ddpcr_publication_vaf_5.0.png" alt="VCA pipeline" width="600" />
-
-
-## PCR Assay Design
-
-**[PCR Diagnostics](digital_PCR/pcr_design_simulation.ipynb)** - PCR design for clinical diagnostic development.
-
-<img src="docs/KRAS_mut_gel_electrophoresis.png" alt="VCA pipeline" width="300" />
-
-
-## Project Planning Documents
-
-**[TODO List](TODO.md)** - Comprehensive development roadmap with prioritized tasks.
-
-
-## Data
-
-**Source:** NCBI SRA BioProject [PRJNA714799](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA714799)
-
-**Samples:** Circulating tumor DNA from colorectal cancer patients collected at multiple timepoints:
-- Pre-treatment (baseline)
-- During treatment (first follow-up)
-- Post-treatment (final timepoint)
-
-
 ## Installation
 
 ### Prerequisites
@@ -73,6 +34,54 @@ conda env create -f environment.yml
 conda activate vca_env
 ```
 
+
+## Data
+
+**Source:** NCBI SRA BioProject [PRJNA714799](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA714799)
+
+**Samples:** Circulating tumor DNA from colorectal cancer patients collected at multiple timepoints:
+- Pre-treatment (baseline)
+- During treatment (first follow-up)
+- Post-treatment (final timepoint)
+
+
+## Workflow
+
+### 1. Variant Calling Analysis (VCA)
+
+**[Variant Calling Pipeline](vca_pipeline.ipynb)** - Jupyter notebook containing the VCA pipeline to detect variant allele frequencies in genomic regions.
+
+
+### 2. Droplet Digital PCR (ddPCR) Assay Design
+
+**[ddPCR Primer Design](digital_PCR/ddpcr_primer_design.ipynb)** - Automated design of dual-probe ddPCR assays for SNP genotyping.
+- Extracts variants from VCF files.
+- Designs common primers and allele-specific probes (WT-VIC, MUT-FAM).
+- **Virtual PCR**: Simulates amplification and generates gel electrophoresis images to verify primer specificity.
+
+**[ddPCR Design Notebook (development)](digital_PCR/dpcr_rare_mutation_detection.ipynb)** - Simulate Droplet Digital PCR assays for absolute quantification of ctDNA.
+- Allele-specific probe design (FAM/VIC dual-color assays)
+- Droplet partitioning simulation using Poisson statistics
+- Limit of detection (LOD) calculations (down to 0.01% VAF)
+- 1D Amplitude plots
+
+<img src="digital_PCR/ddpcr_publication_vaf_5.0.png" alt="VCA pipeline" width="600" />
+
+
+### 3. PCR Assay Design
+
+**[PCR Diagnostics](digital_PCR/pcr_design_simulation.ipynb)** - PCR design for clinical diagnostic development.
+
+<img src="docs/KRAS_mut_gel_electrophoresis.png" alt="VCA pipeline" width="300" />
+
+
+## Project Planning Documents
+
+**[TODO List](TODO.md)** - Comprehensive development roadmap with prioritized tasks.
+
+
+## Code Architecture
+
 ```
 ctDNA_analysis - Code Architecture/
 ├── 📁 src/                                                   # Core source code
@@ -84,9 +93,12 @@ ctDNA_analysis - Code Architecture/
 │   └── run_pipeline.sh                                       # Pipeline launcher script
 ├── 📁 config/                                                # Configuration files
 │   └── pipeline_config.yml                                   # Pipeline configuration
-├── 📁 dev/                                                   # (development) Simulation analysis
-│   ├── pcr_design_simulation.ipynb                           # Simulating PCR diagnostic assay (development)
-│   └── pcr_visualization.py                                  # Visualize PCR gel (development)
+├── 📁 digital_PCR/                                           # Digital PCR & Primer Design
+│   ├── ddpcr_primer_design.ipynb                             # ddPCR SNP assay design notebook
+│   ├── ddpcr_snp_assays.csv                                  # Output: Designed assays
+│   ├── dpcr_rare_mutation_detection.ipynb                    # ddPCR simulation notebook
+│   ├── pcr_design_simulation.ipynb                           # PCR diagnostic simulation
+│   └── pcr_visualization.py                                  # Visualization utilities
 ├── 📁 notebooks/                                             # (Future re-organization) Jupyter notebooks 
 │   ├── variant_calling_analysis_cleaned.ipynb                # Main analysis notebook
 ├── 📁 docs/                                                  # Documentation
