@@ -21,7 +21,7 @@ if [ -z "$CONDA_DEFAULT_ENV" ]; then
 fi
 
 echo "Checking dependencies..."
-for tool in bwa samtools bcftools prefetch fasterq-dump; do
+for tool in bwa samtools lofreq snpEff fastqc fastp prefetch fasterq-dump; do
     if ! command -v $tool &> /dev/null; then
         echo "[ERROR] Required tool not found: $tool"
         exit 1

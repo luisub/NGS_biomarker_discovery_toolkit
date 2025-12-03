@@ -15,6 +15,18 @@ This code aims to identify potential variant allele frequency changes that serve
 <img src="docs/image.png" alt="VCA pipeline" width="900" />
 
 
+
+## Data
+
+**Source:** NCBI SRA BioProject [PRJNA714799](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA714799)
+
+**Samples:** Circulating tumor DNA from colorectal cancer patients collected at multiple timepoints:
+- Pre-treatment (baseline)
+- During treatment (first follow-up)
+- Post-treatment (final timepoint)
+
+
+
 ## Installation
 
 ### Prerequisites
@@ -35,89 +47,72 @@ conda activate vca_env
 ```
 
 
-## Data
+## Workflow & Code Architecture
 
-**Source:** NCBI SRA BioProject [PRJNA714799](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA714799)
+The analysis follows a 3-step process. Each step corresponds to a specific notebook and directory in the repository.
 
-**Samples:** Circulating tumor DNA from colorectal cancer patients collected at multiple timepoints:
-- Pre-treatment (baseline)
-- During treatment (first follow-up)
-- Post-treatment (final timepoint)
+### 1. Variant Calling Analysis
+**Goal**: Identify somatic variants (SNPs/Indels) from NGS data.
+- **Notebook**: [vca_pipeline_improved.ipynb](pipelines_vca/vca_pipeline_improved.ipynb)
+- **Directory**: `pipelines_vca/`
+- **Output**: Annotated VCF files (`pipelines_vca/data/variants/*.lofreq.ann.vcf.gz`).
 
+<img src="pipelines_vca/gene_and_variants.png" alt="VCA pipeline" width="800" />
 
-## Workflow
+### 2. Primer Design
+**Goal**: Design dual-color ddPCR assays for detected variants.
+- **Notebook**: [ddpcr_primer_design.ipynb](digital_PCR/ddpcr_primer_design.ipynb)
+- **Directory**: `digital_PCR/`
+- **Output**: Primer/Probe sequences (`ddpcr_snp_assays.csv`) and virtual gel images.
 
-### 1. Variant Calling Analysis (VCA)
+<img src="docs/KRAS_mut_gel_electrophoresis.png" alt="Primer Design" width="400" />
 
-**[Variant Calling Pipeline](vca_pipeline.ipynb)** - Jupyter notebook containing the VCA pipeline to detect variant allele frequencies in genomic regions.
+### 3. Digital PCR Simulation
+**Goal**: Simulate ddPCR droplet partitioning and rare mutation detection.
+- **Notebook**: [ddpcr_simulation.ipynb](digital_PCR/ddpcr_simulation.ipynb)
+- **Directory**: `digital_PCR/`
+- **Output**: Simulated 1D/2D plots and Limit of Detection (LOD) analysis.
 
+<img src="digital_PCR/ddpcr_plots/ddpcr_publication_vaf_5.0.png" alt="ddPCR Simulation" width="600" />
 
-### 2. Droplet Digital PCR (ddPCR) Assay Design
-
-**[ddPCR Primer Design](digital_PCR/ddpcr_primer_design.ipynb)** - Automated design of dual-probe ddPCR assays for SNP genotyping.
-- Extracts variants from VCF files.
-- Designs common primers and allele-specific probes (WT-VIC, MUT-FAM).
-- **Virtual PCR**: Simulates amplification and generates gel electrophoresis images to verify primer specificity.
-
-**[ddPCR Design Notebook (development)](digital_PCR/dpcr_rare_mutation_detection.ipynb)** - Simulate Droplet Digital PCR assays for absolute quantification of ctDNA.
-- Allele-specific probe design (FAM/VIC dual-color assays)
-- Droplet partitioning simulation using Poisson statistics
-- Limit of detection (LOD) calculations (down to 0.01% VAF)
-- 1D Amplitude plots
-
-<img src="digital_PCR/ddpcr_publication_vaf_5.0.png" alt="VCA pipeline" width="600" />
-
-
-### 3. PCR Assay Design
-
-**[PCR Diagnostics](digital_PCR/pcr_design_simulation.ipynb)** - PCR design for clinical diagnostic development.
-
-<img src="docs/KRAS_mut_gel_electrophoresis.png" alt="VCA pipeline" width="300" />
-
-
-## Project Planning Documents
-
-**[TODO List](TODO.md)** - Comprehensive development roadmap with prioritized tasks.
 
 
 ## Code Architecture
 
 ```
 ctDNA_analysis - Code Architecture/
-├── 📁 src/                                                   # Core source code
-│   ├── main_code.py                                          # (development)
-│   └── 📁 utils/                                             # Utility functions
-│       ├── imports.py                                        # Central import management (development)
-├── 📁 pipelines/                                             # Complete analysis workflows
-│   ├── run_vca_pipeline.py                                   # Main pipeline script
-│   └── run_pipeline.sh                                       # Pipeline launcher script
-├── 📁 config/                                                # Configuration files
-│   └── pipeline_config.yml                                   # Pipeline configuration
+├── 📁 pipelines_vca/                                         # Variant Calling Analysis Pipeline
+│   ├── vca_pipeline_improved.ipynb                           # Main pipeline notebook
+│   ├── vca_pipeline.ipynb                                    # (Legacy) Original pipeline notebook
+│   ├── run_vca_pipeline.py                                   # Main pipeline script (FastQC, fastp, Lofreq, SnpEff)
+│   ├── run_pipeline.sh                                       # Pipeline launcher script
+│   ├── plots_sequences.py                                    # Protein mutation visualization
+│   └── 📁 data/                                              # Data directory (input/output)
 ├── 📁 digital_PCR/                                           # Digital PCR & Primer Design
 │   ├── ddpcr_primer_design.ipynb                             # ddPCR SNP assay design notebook
-│   ├── ddpcr_snp_assays.csv                                  # Output: Designed assays
-│   ├── dpcr_rare_mutation_detection.ipynb                    # ddPCR simulation notebook
+│   ├── ddpcr_simulation.ipynb                                # ddPCR simulation notebook
 │   ├── pcr_design_simulation.ipynb                           # PCR diagnostic simulation
-│   └── pcr_visualization.py                                  # Visualization utilities
-├── 📁 notebooks/                                             # (Future re-organization) Jupyter notebooks 
-│   ├── variant_calling_analysis_cleaned.ipynb                # Main analysis notebook
+│   ├── pcr_visualization.py                                  # Visualization utilities
+│   ├── dpcr_nanoplate_visualization.py                       # Nanoplate visualization
+│   └── ddpcr_snp_assays.csv                                  # Output: Designed assays
+├── 📁 machine_learning/                                      # Machine Learning (Planned)
+│   └── TODO_ML.md                                            # ML roadmap
+├── 📁 config/                                                # Configuration files
+│   └── pipeline_config.yml                                   # Pipeline configuration
 ├── 📁 docs/                                                  # Documentation
-│   ├── pipeline_guide.md                                     # Complete user manual
-│   ├── user_guide.md                                         # (planned)
-│   └── TODO.md                                               # Development roadmap 
-├── 📁 data/                                                  # Data directory (gitignored)
-│   ├── 📁 raw/                                               # Raw sequencing data (SRA downloads)
-│   ├── 📁 reference/                                         # Reference genomes (GRCh38)
-│   ├── 📁 aligned/                                           # BAM alignment files
-│   ├── 📁 variants/                                          # VCF variant call files
-│   └── 📁 metadata/                                          # SRA metadata tables
-├── 📁 tests/                                                 # Unit tests (planned)
-│   ├── test_file.py                                          # (development) Metadata tests
+│   └── pipeline_guide.md                                     # Complete user manual
+├── TODO.md                                                   # Development roadmap
 ├── environment.yml                                           # Conda environment file
 ├── LICENSE                                                   # BSD 3-Clause License
 ├── .gitignore                                                # Git ignore patterns
 └── README.md                                                 # Project documentation
 ```
+
+## Project Planning Documents
+
+**[TODO List](TODO.md)** - Comprehensive development roadmap with prioritized tasks.
+
+
 
 ## License
 

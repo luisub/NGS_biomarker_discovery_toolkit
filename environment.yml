@@ -23,9 +23,14 @@ dependencies:
   - scipy
   - seaborn
   - pyyaml
+  - fastqc
+  - fastp
+  - lofreq
+  - snpeff
+  - dna_features_viewer
+  - biopython
+  - bcbio-gff
   - pip
   - pip:
     - primer3-py
-    - dna_features_viewer
-    - biopython
-    - bcbio-gff
+    - PyPCRtool

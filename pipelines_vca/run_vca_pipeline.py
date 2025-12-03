@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Variant Calling Analysis Pipeline for Circulating Tumor DNA
-by: Luis Aguilera, November 21, 2025.
+by: Luis Aguilera, December 2, 2025.
 """
 
 import subprocess
@@ -17,7 +17,14 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from pysradb import SRAweb
 import requests
+import os
 from typing import Dict, List, Tuple
+try:
+    from plots_sequences import plot_gene_and_variants
+except ImportError:
+    # Handle case where script is run from different directory
+    sys.path.append(str(Path(__file__).parent))
+    from plots_sequences import plot_gene_and_variants
 
 class VCAConfig:
     """Configuration manager for VCA pipeline."""
@@ -37,8 +44,9 @@ class VCAConfig:
         self.variants_dir = self.data_dir / 'variants'
         self.metadata_dir = self.data_dir / 'metadata'
         self.results_dir = self.data_dir / 'results'
+        self.qc_dir = self.data_dir / 'qc'
         for directory in [self.raw_dir, self.reference_dir, self.aligned_dir,
-                         self.variants_dir, self.metadata_dir, self.results_dir]:
+                         self.variants_dir, self.metadata_dir, self.results_dir, self.qc_dir]:
             directory.mkdir(parents=True, exist_ok=True)
 
 class VCAPipeline:
@@ -142,24 +150,66 @@ class VCAPipeline:
         dump_cmd = ['fasterq-dump', run_id, '-O', str(self.config.raw_dir), 
                    '-e', str(self.config.config['processing']['threads'])]
         return self.run_command(dump_cmd, f"FASTQ dump {run_id}")
+
+    def run_fastqc(self, run_id: str) -> bool:
+        """Run FastQC on raw FASTQ files."""
+        fastq_r1 = self.config.raw_dir / f"{run_id}_1.fastq"
+        fastq_r2 = self.config.raw_dir / f"{run_id}_2.fastq"
+        
+        if not fastq_r1.exists():
+             print(f"[ERROR] FASTQ file not found: {fastq_r1}")
+             return False
+        
+        cmd = ['fastqc', '-t', str(self.config.config['processing']['threads']), '-o', str(self.config.qc_dir), str(fastq_r1)]
+        if fastq_r2.exists():
+            cmd.append(str(fastq_r2))
+            
+        return self.run_command(cmd, f"FastQC {run_id}")
+
+    def trim_reads(self, run_id: str) -> bool:
+        """Trim reads using fastp."""
+        fastq_r1 = self.config.raw_dir / f"{run_id}_1.fastq"
+        fastq_r2 = self.config.raw_dir / f"{run_id}_2.fastq"
+        
+        trimmed_r1 = self.config.raw_dir / f"{run_id}_1.trimmed.fastq"
+        trimmed_r2 = self.config.raw_dir / f"{run_id}_2.trimmed.fastq"
+        
+        html_report = self.config.qc_dir / f"{run_id}_fastp.html"
+        json_report = self.config.qc_dir / f"{run_id}_fastp.json"
+        
+        if trimmed_r1.exists():
+            print(f"[SKIP] Trimmed reads already exist: {run_id}")
+            return True
+            
+        cmd = [
+            "fastp",
+            "-i", str(fastq_r1), "-I", str(fastq_r2),
+            "-o", str(trimmed_r1), "-O", str(trimmed_r2),
+            "-h", str(html_report), "-j", str(json_report),
+            "--detect_adapter_for_pe",
+            "--thread", str(self.config.config['processing']['threads'])
+        ]
+        
+        return self.run_command(cmd, f"fastp trimming {run_id}")
     
     def align_reads(self, run_id: str) -> bool:
         """Align reads using BWA-MEM."""
         ref_path = self.config.reference_dir / self.config.config['reference_genome']['filename']
-        fastq_r1 = self.config.raw_dir / f"{run_id}_1.fastq"
-        fastq_r2 = self.config.raw_dir / f"{run_id}_2.fastq"
+        # Use trimmed reads
+        fastq_r1 = self.config.raw_dir / f"{run_id}_1.trimmed.fastq"
+        fastq_r2 = self.config.raw_dir / f"{run_id}_2.trimmed.fastq"
         sam_path = self.config.aligned_dir / f"{run_id}.sam"
+        
         if not fastq_r1.exists():
-            print(f"[ERROR] FASTQ file not found: {fastq_r1}")
+            print(f"[ERROR] Trimmed FASTQ file not found: {fastq_r1}")
             return False
         if sam_path.exists():
             print(f"[SKIP] Alignment already exists: {run_id}")
             return True
+        
         threads = str(self.config.config['processing']['threads'])
-        if fastq_r2.exists():
-            cmd = ['bwa', 'mem', '-t', threads, str(ref_path), str(fastq_r1), str(fastq_r2)]
-        else:
-            cmd = ['bwa', 'mem', '-t', threads, str(ref_path), str(fastq_r1)]
+        cmd = ['bwa', 'mem', '-t', threads, str(ref_path), str(fastq_r1), str(fastq_r2)]
+        
         try:
             with open(sam_path, 'w') as out_file:
                 subprocess.run(cmd, stdout=out_file, check=True, stderr=subprocess.PIPE)
@@ -205,30 +255,65 @@ class VCAPipeline:
         index_cmd = ['samtools', 'index', str(dedup_path)]
         return self.run_command(index_cmd, f"Dedup BAM indexing {run_id}")
     
-    def call_variants(self, run_id: str) -> bool:
-        """Call variants using bcftools mpileup and call."""
+    def call_variants_lofreq(self, run_id: str) -> bool:
+        """Call variants using Lofreq."""
         ref_path = self.config.reference_dir / self.config.config['reference_genome']['filename']
         bam_path = self.config.aligned_dir / f"{run_id}_dedup.bam"
-        vcf_path = self.config.variants_dir / f"{run_id}.vcf"
+        vcf_path = self.config.variants_dir / f"{run_id}.lofreq.vcf"
+        
         if vcf_path.exists():
             print(f"[SKIP] VCF already exists: {run_id}")
             return True
+            
+        # Indel qualities
+        bam_indel_path = bam_path.with_suffix(".indel.bam")
+        if not bam_indel_path.exists():
+            cmd_indel = ["lofreq", "indelqual", "--dindel", "-f", str(ref_path), "-o", str(bam_indel_path), str(bam_path)]
+            if not self.run_command(cmd_indel, f"Lofreq indelqual {run_id}"):
+                return False
+            self.run_command(["samtools", "index", str(bam_indel_path)], f"Index indel BAM {run_id}")
+            
         gene_config = self.config.config['variant_calling']['target_gene']
         region = f"{gene_config['chromosome']}:{gene_config['start']}-{gene_config['end']}"
-        mpileup_cmd = ['bcftools', 'mpileup', '-f', str(ref_path), '-r', region, str(bam_path)]
-        call_cmd = ['bcftools', 'call', '-mv', '-Ov', '-o', str(vcf_path)]
-        try:
-            mpileup_proc = subprocess.Popen(mpileup_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            call_proc = subprocess.Popen(call_cmd, stdin=mpileup_proc.stdout, stderr=subprocess.PIPE)
-            mpileup_proc.stdout.close()
-            call_proc.communicate()
-            if call_proc.returncode != 0:
-                print(f"[ERROR] Variant calling failed")
-                return False
-            print(f"[OK] Variant calling completed: {run_id}")
+        
+        cmd_call = [
+            "lofreq", "call",
+            "-f", str(ref_path),
+            "-r", region,
+            "-o", str(vcf_path),
+            "--call-indels",
+            str(bam_indel_path)
+        ]
+        
+        return self.run_command(cmd_call, f"Lofreq call {run_id}")
+
+    def annotate_variants(self, run_id: str) -> bool:
+        """Annotate variants using SnpEff."""
+        input_vcf = self.config.variants_dir / f"{run_id}.lofreq.vcf"
+        output_vcf = self.config.variants_dir / f"{run_id}.lofreq.ann.vcf"
+        output_vcf_gz = self.config.variants_dir / f"{run_id}.lofreq.ann.vcf.gz"
+        
+        if output_vcf_gz.exists():
+            print(f"[SKIP] Annotated VCF already exists: {run_id}")
             return True
+            
+        # Set Java heap
+        os.environ["_JAVA_OPTIONS"] = "-Xmx4g"
+        
+        try:
+            with open(output_vcf, "w") as f:
+                subprocess.run(["snpEff", "-v", "GRCh38.86", str(input_vcf)], stdout=f, check=True, stderr=subprocess.PIPE)
+            
+            pysam.tabix_index(str(output_vcf), preset="vcf", force=True)
+            if output_vcf.exists():
+                output_vcf.unlink() # Remove uncompressed
+            print(f"[OK] Annotation completed: {run_id}")
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"[ERROR] Annotation failed: {e.stderr.decode()[:100]}")
+            return False
         except Exception as e:
-            print(f"[ERROR] Variant calling failed: {str(e)[:100]}")
+            print(f"[ERROR] Annotation failed: {str(e)[:100]}")
             return False
     
     def parse_variants(self) -> pd.DataFrame:
@@ -237,8 +322,9 @@ class VCAPipeline:
         filters = self.config.config['variant_calling']['filters']
         min_depth = filters['min_depth']
         min_freq = filters['min_allele_frequency']
+        
         for run_id, info in self.sample_info.items():
-            vcf_path = self.config.variants_dir / f"{run_id}.vcf"
+            vcf_path = self.config.variants_dir / f"{run_id}.lofreq.ann.vcf.gz"
             if not vcf_path.exists():
                 continue
             try:
@@ -251,28 +337,22 @@ class VCAPipeline:
                     alt_alleles = record.alts
                     if not alt_alleles:
                         continue
-                    for sample in record.samples.values():
-                        ad = sample.get('AD', None)
-                        if ad and len(ad) > 1:
-                            ref_count = ad[0]
-                            alt_count = ad[1]
-                            total_count = ref_count + alt_count
-                            if total_count > 0:
-                                allele_freq = alt_count / total_count
-                                if allele_freq >= min_freq:
-                                    variants_list.append({
-                                        'run_id': run_id,
-                                        'patient_id': info['patient_id'],
-                                        'timepoint': info['timepoint'],
-                                        'chromosome': record.chrom,
-                                        'position': record.pos,
-                                        'ref': ref_allele,
-                                        'alt': alt_alleles[0],
-                                        'depth': depth,
-                                        'ref_count': ref_count,
-                                        'alt_count': alt_count,
-                                        'allele_frequency': allele_freq
-                                    })
+                    
+                    # Lofreq AF is in AF info field
+                    af = record.info.get('AF', [0.0])[0]
+                    
+                    if af >= min_freq:
+                        variants_list.append({
+                            'run_id': run_id,
+                            'patient_id': info['patient_id'],
+                            'timepoint': info['timepoint'],
+                            'chromosome': record.chrom,
+                            'position': record.pos,
+                            'ref': ref_allele,
+                            'alt': alt_alleles[0],
+                            'depth': depth,
+                            'allele_frequency': af
+                        })
                 vcf.close()
             except Exception as e:
                 print(f"[WARNING] Failed to parse VCF for {run_id}: {str(e)[:100]}")
@@ -321,11 +401,11 @@ class VCAPipeline:
             print("[WARNING] No candidate variants to visualize")
             return
         timepoint_order = ['pre_treatment', 'during_treatment', 'post_treatment']
-        candidate_variants['timepoint_cat'] = pd.Categorical(
-            candidate_variants['timepoint'], categories=timepoint_order, ordered=True)
-        candidate_sorted = candidate_variants.sort_values('timepoint_cat')
+        # Map numerical timepoints to labels if needed, or rely on existing logic
+        # For now, assuming timepoint column matches
+        
         fig, ax = plt.subplots(figsize=(8, 5))
-        ax.plot(candidate_sorted['timepoint_cat'], candidate_sorted['allele_frequency'],
+        ax.plot(candidate_variants['timepoint'], candidate_variants['allele_frequency'],
                marker='o', linewidth=2, markersize=10, color='#2E86AB')
         ax.set_title('Variant Allele Frequency Over Treatment', fontsize=14, fontweight='bold')
         ax.set_xlabel('Treatment Stage', fontsize=12)
@@ -337,7 +417,32 @@ class VCAPipeline:
         plot_path = self.config.results_dir / 'vaf_over_time.png'
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
         plt.close()
-        print(f"[OK] Visualization saved")
+        print(f"[OK] Visualization saved: vaf_over_time.png")
+
+        # Generate Gene Plot
+        try:
+            gene_config = self.config.config['variant_calling']['target_gene']
+            gene_name = gene_config.get('name', 'Target_Gene')
+            region = f"{gene_config['chromosome']}:{gene_config['start']}-{gene_config['end']}"
+            
+            vcf_files = {}
+            for run_id, info in self.sample_info.items():
+                vcf_path = self.config.variants_dir / f"{run_id}.lofreq.ann.vcf.gz"
+                if vcf_path.exists():
+                    label = f"{info['patient_id']} ({info['timepoint']})"
+                    vcf_files[label] = str(vcf_path)
+            
+            if vcf_files:
+                output_plot = self.config.results_dir / 'gene_variants_plot.png'
+                plot_gene_and_variants(
+                    gene_name=gene_name,
+                    vcf_files=vcf_files,
+                    genomic_region=region,
+                    output_file=str(output_plot)
+                )
+                print(f"[OK] Visualization saved: gene_variants_plot.png")
+        except Exception as e:
+            print(f"[WARNING] Failed to generate gene plot: {e}")
     
     def save_results(self, variants_df: pd.DataFrame, candidate_variants: pd.DataFrame,
                     summary_stats: Dict):
@@ -373,14 +478,21 @@ class VCAPipeline:
             print(f"\nProcessing: {run_id}")
             if not self.download_sra_data(run_id):
                 continue
+            if not self.run_fastqc(run_id):
+                continue
+            if not self.trim_reads(run_id):
+                continue
             if not self.align_reads(run_id):
                 continue
             if not self.convert_sort_index_bam(run_id):
                 continue
             if not self.remove_duplicates(run_id):
                 continue
-            if not self.call_variants(run_id):
+            if not self.call_variants_lofreq(run_id):
                 continue
+            if not self.annotate_variants(run_id):
+                continue
+                
         print("\nVARIANT ANALYSIS")
         print("=" * 60)
         variants_df = self.parse_variants()

@@ -1,0 +1,70 @@
+
+======================================================================
+PCR ASSAY DESIGN SUMMARY FOR KRAS G12D DETECTION
+======================================================================
+
+TARGET MUTATION:
+  Gene: KRAS
+  Mutation: G12D (Glycine to Aspartic Acid)
+  Location: chr12:25209531
+  Change: G>A
+  Clinical Significance: Common oncogenic driver in colorectal cancer
+
+PRIMER DESIGNS:
+  1. Wildtype-Specific Forward:
+     AGTAATCAACTGCATGCACCAAAAG
+     Tm: 54.9°C, GC: 40.0%
+
+  2. Mutant-Specific Forward (G12D):
+     AGTAATCAACTGCATGCACCAAAAA
+     Tm: 54.5°C, GC: 36.0%
+
+  3. Common Reverse:
+     CAGTGGAAGTTTTTTTTTCCTCTAA
+     Tm: 50.5°C, GC: 32.0%
+
+EXPECTED PCR PRODUCT:
+  Size: 134 bp
+
+PCR SIMULATION RESULTS:
+  ✓ WT Primer + WT Template: AMPLIFIES (100%)
+  ✗ WT Primer + Mutant Template: NO AMPLIFICATION (5%)
+  ✗ Mutant Primer + WT Template: NO AMPLIFICATION (5%)
+  ✓ Mutant Primer + Mutant Template: AMPLIFIES (100%)
+
+RECOMMENDED PCR PROTOCOL:
+  1. Annealing Temperature: 58-62°C (optimize based on primer Tm)
+  2. Extension Time: 30 seconds (product ~134 bp)
+  3. Cycles: 35-40 cycles
+  4. Template DNA: 10-50 ng per reaction
+
+  Two-Tube Assay:
+    Tube 1: Wildtype-specific primer + Common reverse
+    Tube 2: Mutant-specific primer + Common reverse
+
+  Interpretation:
+    - Both tubes positive: Heterozygous mutation (WT + Mutant)
+    - Only Tube 1 positive: Wildtype only
+    - Only Tube 2 positive: Homozygous mutation
+    - Both tubes negative: PCR failure (check controls)
+
+CLINICAL APPLICATION:
+  - Screening for KRAS G12D in ctDNA from colorectal cancer patients
+  - Monitoring mutation burden during anti-EGFR therapy
+  - Detection limit: ~1-5% VAF with standard qPCR
+  - For lower VAF (<1%), consider digital droplet PCR (ddPCR)
+
+OUTPUT FILES GENERATED:
+  1. KRAS_G12D_wildtype.fasta - Wildtype sequence
+  2. KRAS_G12D_mutant.fasta - Mutant sequence
+  3. KRAS_G12D_primers.csv - Primer information
+  4. KRAS_G12D_pcr_simulation.png - Results visualization
+
+NEXT STEPS:
+  1. Order primers from IDT or other supplier
+  2. Validate with positive control DNA (synthetic oligos)
+  3. Optimize annealing temperature with gradient PCR
+  4. Test on patient ctDNA samples
+  5. Establish limit of detection with serial dilutions
+
+======================================================================
