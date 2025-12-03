@@ -57,6 +57,16 @@ The analysis follows a 3-step process. Each step corresponds to a specific noteb
 - **Directory**: `pipelines_vca/`
 - **Output**: Annotated VCF files (`pipelines_vca/data/variants/*.lofreq.ann.vcf.gz`).
 
+| Analysis Name | Input File Type | Output File Type | Description |
+| :--- | :--- | :--- | :--- |
+| **Quality Control** | Raw FASTQ (`.fastq.gz`) | HTML Report | Quality assessment of raw sequencing reads using FastQC. |
+| **Read Trimming** | Raw FASTQ (`.fastq.gz`) | Trimmed FASTQ (`.trimmed.fastq.gz`) | Removal of adapters and low-quality bases using fastp. |
+| **Alignment** | Trimmed FASTQ | Sorted BAM (`.sorted.bam`) | Alignment of reads to GRCh38 reference genome using BWA-MEM. |
+| **Duplicate Removal** | Sorted BAM | Deduplicated BAM (`.markdup.bam`) | Marking and removal of PCR duplicates using Samtools. |
+| **Variant Calling** | Deduplicated BAM | VCF (`.lofreq.vcf`) | High-sensitivity somatic variant calling using Lofreq. |
+| **Variant Annotation** | VCF (`.lofreq.vcf`) | Annotated VCF (`.ann.vcf.gz`) | Functional annotation of variants using SnpEff. |
+| **Visualization** | Annotated VCF | Plots (PNG) | Visualization of variants on gene and protein structures. |
+
 <img src="pipelines_vca/gene_and_variants.png" alt="VCA pipeline" width="800" />
 
 ### 2. Primer Design
