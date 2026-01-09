@@ -84,6 +84,31 @@ The analysis follows a 3-step process. Each step corresponds to a specific noteb
 
 <img src="pipelines_vca/gene_and_variants.png" alt="VCA pipeline" width="800" />
 
+#### Pipeline Implementations
+
+The Variant Calling workflow is available in **two implementations**:
+
+| Implementation | Location | Use Case | Status |
+|----------------|----------|----------|--------|
+| **Nextflow** | `nextflow/` | 🚀 **Production** - HPC, Cloud, Batch processing | Recommended |
+| **Python** | `pipelines_vca/` | 🔧 **Development** - Prototyping, Single samples | For testing |
+
+**When to use Nextflow (Production):**
+
+- Processing multiple samples (batch mode)
+- Running on HPC clusters (SLURM, PBS) or cloud (AWS Batch)
+- Need reproducibility with containers (Singularity/Docker)
+- Need automatic resume on failure
+
+**When to use Python (Development):**
+
+- Rapid prototyping and testing new features
+- Debugging and development
+- Single sample analysis
+- Jupyter notebook integration
+
+> **Note:** New features are typically developed in Python first, validated, then ported to Nextflow for production use.
+
 ### 2. Primer Design
 
 **Goal**: Design dual-color ddPCR assays for detected variants.
@@ -106,31 +131,104 @@ The analysis follows a 3-step process. Each step corresponds to a specific noteb
 
 ## Code Architecture
 
+### Module Overview
+
+| Module | Purpose | Independent? | Status |
+|--------|---------|--------------|--------|
+| `nextflow/` | 🚀 Production variant calling pipeline | ✅ Yes | **Production** |
+| `pipelines_vca/` | 🔧 Python variant calling (dev/test) | ✅ Yes | Development |
+| `digital_PCR/` | 🧪 ddPCR primer design & simulation | ✅ Yes | Complete |
+| `machine_learning/` | 🤖 Biomarker prediction models | ✅ Yes | Planned |
+
+### Directory Structure
+
+```text
+NGS_biomarker_discovery_toolkit/
+│
+├── 📁 nextflow/                    # ⚡ PRODUCTION PIPELINE (Nextflow DSL2)
+│   ├── main.nf                     # Pipeline entrypoint
+│   ├── modules/                    # Process definitions (BQSR, LoFreq, etc.)
+│   ├── subworkflows/               # Reusable workflow components
+│   ├── conf/                       # Execution profiles (slurm, docker, etc.)
+│   ├── docs/                       # Pipeline documentation
+│   └── test/                       # Test data and configs
+│
+├── 📁 pipelines_vca/               # 🐍 PYTHON PIPELINE (Development)
+│   ├── run_vca_pipeline.py         # Main script (all steps integrated)
+│   ├── config.yaml                 # Pipeline configuration
+│   ├── plots_sequences.py          # Visualization utilities
+│   └── data_cluster/               # Data storage (reference, aligned, variants)
+│
+├── 📁 digital_PCR/                 # 🧬 DIGITAL PCR MODULE (Independent)
+│   ├── ddpcr_primer_design.ipynb   # Primer/probe design workflow
+│   ├── ddpcr_simulation.ipynb      # Droplet partitioning simulation
+│   ├── pcr_visualization.py        # Gel electrophoresis visualization
+│   └── ddpcr_snp_assays.csv        # Output: Designed assays
+│
+├── 📁 machine_learning/            # 🤖 ML MODULE (Planned)
+│   └── TODO_ML.md                  # Development roadmap
+│
+├── 📁 docs/                        # 📚 Project documentation
+├── 📁 config/                      # ⚙️ Shared configuration
+├── environment.yml                 # Conda environment
+└── README.md                       # This file
 ```
-ctDNA_analysis - Code Architecture/
-├── 📁 pipelines_vca/                                         # Variant Calling Analysis Pipeline
-│   ├── vca_pipeline.ipynb                                    # Main pipeline notebook
-│   ├── run_vca_pipeline.py                                   # Main pipeline script (FastQC, fastp, Lofreq, SnpEff)
-│   ├── run_pipeline.sh                                       # Pipeline launcher script
-│   ├── plots_sequences.py                                    # Protein mutation visualization
-│   └── 📁 data/                                              # Data directory (input/output)
-├── 📁 digital_PCR/                                           # Digital PCR & Primer Design
-│   ├── ddpcr_primer_design.ipynb                             # ddPCR SNP assay design notebook
-│   ├── ddpcr_simulation.ipynb                                # ddPCR simulation notebook
-│   ├── pcr_visualization.py                                  # Visualization utilities
-│   ├── dpcr_nanoplate_visualization.py                       # Nanoplate visualization
-│   └── ddpcr_snp_assays.csv                                  # Output: Designed assays
-├── 📁 machine_learning/                                      # Machine Learning (Planned)
-│   └── TODO_ML.md                                            # ML roadmap
-├── 📁 config/                                                # Configuration files
-│   └── pipeline_config.yml                                   # Pipeline configuration
-├── 📁 docs/                                                  # Documentation
-│   └── pipeline_guide.md                                     # Complete user manual
-├── TODO.md                                                   # Development roadmap
-├── environment.yml                                           # Conda environment file
-├── LICENSE                                                   # BSD 3-Clause License
-├── .gitignore                                                # Git ignore patterns
-└── README.md                                                 # Project documentation
+
+### Module Relationships
+
+```text
+                ┌─────────────────────────────────────────┐
+                │        Variant Calling Analysis         │
+                │                                         │
+                │  ┌─────────────┐   ┌─────────────────┐  │
+                │  │  nextflow/  │   │ pipelines_vca/  │  │
+                │  │ (Production)│   │ (Development)   │  │
+                │  └──────┬──────┘   └────────┬────────┘  │
+                │         │ VCF output        │           │
+                └─────────┼───────────────────┼───────────┘
+                          │                   │
+                          ▼                   ▼
+              ┌───────────────────────────────────────────┐
+              │              digital_PCR/                 │
+              │     Primer Design & ddPCR Simulation      │
+              │         (Uses VCF as optional input)      │
+              └───────────────────────────────────────────┘
+                                    │
+                                    ▼
+              ┌───────────────────────────────────────────┐
+              │           machine_learning/               │
+              │     Biomarker Discovery (Future)          │
+              │      (Uses variant data as input)         │
+              └───────────────────────────────────────────┘
+```
+
+## Getting Started
+
+### Quick Start - Nextflow (Recommended)
+
+```bash
+# Run the production pipeline
+cd nextflow
+nextflow run main.nf \
+    --input samplesheet.csv \
+    --genome_fasta /path/to/GRCh38.fa \
+    -profile singularity
+```
+
+### Quick Start - Python (Development)
+
+```bash
+# Run the Python pipeline
+cd pipelines_vca
+python run_vca_pipeline.py config.yaml
+```
+
+### Digital PCR (Independent)
+
+```bash
+# Open Jupyter and run the notebooks
+cd digital_PCR
+jupyter notebook ddpcr_primer_design.ipynb
 ```
 
 ## Project Planning Documents
