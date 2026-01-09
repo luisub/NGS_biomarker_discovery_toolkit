@@ -1,0 +1,3 @@
+sample,fastq_1,fastq_2,patient_id,timepoint
+test_sample_01,test/data/test_R1.fastq.gz,test/data/test_R2.fastq.gz,TEST001,baseline
+test_sample_02,test/data/test2_R1.fastq.gz,test/data/test2_R2.fastq.gz,TEST001,follow_up

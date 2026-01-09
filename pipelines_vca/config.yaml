@@ -21,3 +21,16 @@ variant_calling:
   filters:
     min_depth: 20
     min_allele_frequency: 0.01
+
+# Germline filtering - filter common population variants
+germline_filtering:
+  enabled: true
+  max_population_af: 0.01  # Filter variants with gnomAD AF > 1%
+  # gnomAD data source (chr12 for KRAS region)
+  gnomad_url: "https://storage.googleapis.com/gcp-public-data--gnomad/release/4.0/vcf/exomes/gnomad.exomes.v4.0.sites.chr12.vcf.bgz"
+  gnomad_filename: "gnomad.exomes.v4.0.sites.chr12.vcf.bgz"
+
+# Base Quality Score Recalibration
+bqsr:
+  enabled: true
+  method: "viterbi"  # Options: viterbi (LoFreq), gatk (future)

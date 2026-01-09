@@ -5,6 +5,72 @@
  * Uses mulled container with LoFreq + samtools + htslib for all dependencies
  */
 
+/*
+ * LOFREQ_VITERBI - Base Quality Score Recalibration
+ * Uses Viterbi algorithm to recalibrate base quality scores
+ * Improves accuracy of low-frequency variant detection
+ */
+process LOFREQ_VITERBI {
+    tag "$meta.id"
+    label 'process_high'
+    
+    // Mulled container with lofreq, samtools, and htslib
+    container 'quay.io/biocontainers/mulled-v2-4f8e2ed02c274b738b62a4e99cb6e02c84be1a6c:8d8db227fb4e07410c6e7fe07be0eae17b859ee4-0'
+    
+    publishDir "${params.outdir}/aligned", mode: params.publish_dir_mode,
+        pattern: "*.viterbi.bam*", enabled: params.save_bqsr_bam
+    
+    input:
+    tuple val(meta), path(bam), path(bai)
+    path(fasta)
+    
+    output:
+    tuple val(meta), path("*.viterbi.bam"), path("*.viterbi.bam.bai"), emit: bam
+    path("*.viterbi_stats.txt"), emit: stats
+    
+    script:
+    def prefix = "${meta.id}"
+    """
+    echo "=== LoFreq Viterbi BQSR ===" > ${prefix}.viterbi_stats.txt
+    echo "Sample: ${meta.id}" >> ${prefix}.viterbi_stats.txt
+    echo "Input BAM: ${bam}" >> ${prefix}.viterbi_stats.txt
+    echo "" >> ${prefix}.viterbi_stats.txt
+    
+    # Get base quality distribution before BQSR
+    echo "Base quality distribution BEFORE BQSR:" >> ${prefix}.viterbi_stats.txt
+    samtools view ${bam} | head -10000 | cut -f11 | fold -w1 | sort | uniq -c | sort -rn | head -5 >> ${prefix}.viterbi_stats.txt
+    echo "" >> ${prefix}.viterbi_stats.txt
+    
+    # Run LoFreq Viterbi for base quality recalibration
+    # This uses a Hidden Markov Model to recalibrate base qualities
+    lofreq viterbi \\
+        -f ${fasta} \\
+        -o ${prefix}.viterbi.bam \\
+        ${bam}
+    
+    # Index recalibrated BAM
+    samtools index ${prefix}.viterbi.bam
+    
+    # Get base quality distribution after BQSR
+    echo "Base quality distribution AFTER BQSR:" >> ${prefix}.viterbi_stats.txt
+    samtools view ${prefix}.viterbi.bam | head -10000 | cut -f11 | fold -w1 | sort | uniq -c | sort -rn | head -5 >> ${prefix}.viterbi_stats.txt
+    echo "" >> ${prefix}.viterbi_stats.txt
+    
+    # Alignment statistics
+    echo "Alignment statistics:" >> ${prefix}.viterbi_stats.txt
+    samtools flagstat ${prefix}.viterbi.bam >> ${prefix}.viterbi_stats.txt
+    """
+    
+    stub:
+    def prefix = "${meta.id}"
+    """
+    touch ${prefix}.viterbi.bam
+    touch ${prefix}.viterbi.bam.bai
+    touch ${prefix}.viterbi_stats.txt
+    """
+}
+
+
 process LOFREQ_CALL {
     tag "$meta.id"
     label 'process_high'

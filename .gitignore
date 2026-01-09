@@ -1,6 +1,169 @@
-*temp*
+# =============================================================================
+# NGS Biomarker Discovery Toolkit - .gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# -----------------------------------------------------------------------------
+# Jupyter Notebooks
+# -----------------------------------------------------------------------------
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# -----------------------------------------------------------------------------
+# IDE / Editors
+# -----------------------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# -----------------------------------------------------------------------------
+# OS Generated
+# -----------------------------------------------------------------------------
 .DS_Store
-data/
-*.pyc
-test*
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# -----------------------------------------------------------------------------
+# Nextflow
+# -----------------------------------------------------------------------------
+.nextflow/
+.nextflow.log*
+work/
+nextflow/work/
+nextflow/.nextflow/
+nextflow/.nextflow.log*
+nextflow/results/
+results/
+
+# -----------------------------------------------------------------------------
+# Large Data Files (download as needed)
+# -----------------------------------------------------------------------------
+# Reference genomes
+*.fa
 *.fasta
+*.fa.gz
+*.fasta.gz
+*.fa.fai
+*.fasta.fai
+
+# BAM/SAM files
+*.bam
+*.bam.bai
+*.sam
+
+# VCF files (keep test data, ignore large production files)
+# Uncomment to ignore all VCF:
+# *.vcf
+# *.vcf.gz
+# *.vcf.gz.tbi
+
+# gnomAD data (large files - download separately)
+gnomad.exomes.*.vcf.bgz
+gnomad.exomes.*.vcf.bgz.tbi
+gnomad_download.log
+
+# FASTQ files
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+
+# SRA files
+*.sra
+
+# -----------------------------------------------------------------------------
+# Pipeline Data Directories
+# -----------------------------------------------------------------------------
+pipelines_vca/data/
+pipelines_vca/data_cluster/
+!pipelines_vca/data_cluster/reference/.gitkeep
+
+# -----------------------------------------------------------------------------
+# Temporary Files
+# -----------------------------------------------------------------------------
+*temp*
+*.tmp
+*.temp
+*.log
+!CHANGELOG.md
+
+# -----------------------------------------------------------------------------
+# Test Output (keep test input data)
+# -----------------------------------------------------------------------------
+nextflow/test/results/
+
+# -----------------------------------------------------------------------------
+# Documentation Build
+# -----------------------------------------------------------------------------
+docs/_build/
+site/
+
+# -----------------------------------------------------------------------------
+# Coverage / Testing
+# -----------------------------------------------------------------------------
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# -----------------------------------------------------------------------------
+# Misc
+# -----------------------------------------------------------------------------
+*.bak
+*.backup
+.env.local
+.env.*.local
+
+# -----------------------------------------------------------------------------
+# Development Plans (internal use only)
+# -----------------------------------------------------------------------------
+.gemini/
+TODO_PRIORITY.md
+SPRINT_*.md
+*_PRIORITY.md
+.agent/

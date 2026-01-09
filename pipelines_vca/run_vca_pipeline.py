@@ -19,7 +19,9 @@ import matplotlib.pyplot as plt
 from pysradb import SRAweb
 import requests
 import os
-from typing import Dict, List, Tuple
+import logging
+from typing import Dict, List, Tuple, Optional
+from datetime import datetime
 try:
     from plots_sequences import plot_gene_and_variants, plot_protein_mutations, get_protein_features
 except ImportError:
@@ -51,26 +53,99 @@ class VCAConfig:
             directory.mkdir(parents=True, exist_ok=True)
 
 class VCAPipeline:
-    """Main pipeline for variant calling analysis."""
+    """Main pipeline for variant calling analysis.
     
-    def __init__(self, config: VCAConfig):
-        """Initialize pipeline with configuration."""
+    This class orchestrates the complete variant calling workflow including:
+    - Reference genome download and indexing
+    - Sample metadata fetching
+    - Read QC, trimming, and alignment
+    - Duplicate removal and BQSR
+    - Coverage analysis
+    - Variant calling, annotation, and filtering
+    - Results aggregation and visualization
+    
+    Attributes:
+        config: VCAConfig object with pipeline settings
+        metadata_df: DataFrame with SRA metadata
+        sample_info: Dictionary mapping run IDs to sample information
+        logger: Logger instance for this pipeline run
+    """
+    
+    def __init__(self, config: VCAConfig, log_file: Optional[Path] = None):
+        """Initialize pipeline with configuration.
+        
+        Args:
+            config: VCAConfig object with pipeline settings
+            log_file: Optional path to log file. If None, creates timestamped log
+                     in the QC directory.
+        """
         self.config = config
         self.metadata_df = None
         self.sample_info = {}
+        self._setup_logging(log_file)
+    
+    def _setup_logging(self, log_file: Optional[Path] = None) -> None:
+        """Configure logging to both console and file.
+        
+        Args:
+            log_file: Optional path to log file
+        """
+        # Create logger
+        self.logger = logging.getLogger(f'VCAPipeline_{id(self)}')
+        self.logger.setLevel(logging.DEBUG)
+        
+        # Clear any existing handlers
+        self.logger.handlers = []
+        
+        # Console handler (INFO level)
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_format = logging.Formatter('[%(levelname)s] %(message)s')
+        console_handler.setFormatter(console_format)
+        self.logger.addHandler(console_handler)
+        
+        # File handler (DEBUG level - more verbose)
+        if log_file is None:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            log_file = self.config.qc_dir / f'pipeline_{timestamp}.log'
+        
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(logging.DEBUG)
+        file_format = logging.Formatter(
+            '%(asctime)s [%(levelname)s] %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(file_format)
+        self.logger.addHandler(file_handler)
+        
+        self.logger.info(f"Pipeline log: {log_file}")
     
     def run_command(self, cmd: List[str], step_name: str) -> bool:
-        """Execute shell command with error handling."""
+        """Execute shell command with error handling and logging.
+        
+        Args:
+            cmd: Command and arguments as list
+            step_name: Human-readable name for logging
+            
+        Returns:
+            True if command succeeded, False otherwise
+        """
+        self.logger.debug(f"Running: {' '.join(cmd)}")
         try:
             result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            self.logger.info(f"{step_name}")
             print(f"[OK] {step_name}")
             return True
         except subprocess.CalledProcessError as e:
-            print(f"[ERROR] {step_name} failed: {e.stderr[:100]}")
+            error_msg = e.stderr[:200] if e.stderr else str(e)
+            self.logger.error(f"{step_name} failed: {error_msg}")
+            print(f"[ERROR] {step_name} failed: {error_msg[:100]}")
             return False
         except FileNotFoundError:
+            self.logger.error(f"{step_name} failed: Command not found - {cmd[0]}")
             print(f"[ERROR] {step_name} failed: Command not found")
             return False
+
     
     def download_reference_genome(self) -> bool:
         """Download and index GRCh38 reference genome."""
@@ -135,6 +210,71 @@ class VCAPipeline:
             print(f"[WARNING] dbSNP download failed: {e}")
             if dbsnp_vcf.exists(): dbsnp_vcf.unlink()
             if dbsnp_tbi.exists(): dbsnp_tbi.unlink()
+            return None
+
+    def download_gnomad(self) -> Path:
+        """Download gnomAD VCF for germline filtering.
+        
+        Downloads population allele frequency data from gnomAD to filter
+        common germline variants from somatic variant calls.
+        
+        Returns:
+            Path to gnomAD VCF file, or None if download fails or disabled.
+        """
+        germline_config = self.config.config.get('germline_filtering', {})
+        
+        if not germline_config.get('enabled', False):
+            print("[SKIP] Germline filtering is disabled")
+            return None
+        
+        gnomad_filename = germline_config.get('gnomad_filename', 'gnomad.exomes.v4.0.sites.chr12.vcf.bgz')
+        gnomad_url = germline_config.get('gnomad_url')
+        
+        gnomad_vcf = self.config.reference_dir / gnomad_filename
+        gnomad_tbi = self.config.reference_dir / (gnomad_filename + '.tbi')
+        
+        if gnomad_vcf.exists() and gnomad_tbi.exists():
+            print(f"[SKIP] gnomAD files already exist: {gnomad_filename}")
+            return gnomad_vcf
+        
+        if not gnomad_url:
+            print("[WARNING] gnomAD URL not configured, skipping download")
+            return None
+            
+        print(f"Downloading gnomAD population frequencies...")
+        print(f"  URL: {gnomad_url}")
+        print(f"  This may take a while (~2GB for chr12)...")
+        
+        try:
+            # Download VCF
+            with requests.get(gnomad_url, stream=True) as r:
+                r.raise_for_status()
+                total_size = int(r.headers.get('content-length', 0))
+                downloaded = 0
+                with open(gnomad_vcf, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192*16):
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total_size > 0:
+                            pct = (downloaded / total_size) * 100
+                            print(f"\r  Progress: {pct:.1f}%", end='', flush=True)
+                print()  # New line after progress
+            
+            # Download Index
+            tbi_url = gnomad_url + '.tbi'
+            print(f"Downloading index from {tbi_url}...")
+            with requests.get(tbi_url, stream=True) as r:
+                r.raise_for_status()
+                with open(gnomad_tbi, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                        
+            print("[OK] gnomAD download completed")
+            return gnomad_vcf
+        except Exception as e:
+            print(f"[WARNING] gnomAD download failed: {e}")
+            if gnomad_vcf.exists(): gnomad_vcf.unlink()
+            if gnomad_tbi.exists(): gnomad_tbi.unlink()
             return None
 
     
@@ -294,13 +434,204 @@ class VCAPipeline:
             return False
         index_cmd = ['samtools', 'index', str(dedup_path)]
         return self.run_command(index_cmd, f"Dedup BAM indexing {run_id}")
+
+    def calculate_coverage_stats(self, run_id: str) -> bool:
+        """Calculate depth of coverage statistics for the target region.
+        
+        Computes coverage metrics including mean depth, median depth,
+        and fraction of bases covered at various thresholds (10x, 50x, 100x, 500x).
+        This is critical for ctDNA analysis where high coverage is essential.
+        
+        Args:
+            run_id: Sample run identifier
+            
+        Returns:
+            True if coverage analysis succeeded, False otherwise
+            
+        Note:
+            Uses samtools depth for coverage calculation. For more detailed
+            analysis, consider installing mosdepth (faster, more features).
+        """
+        # Use BQSR BAM if available, otherwise use deduplicated BAM
+        bqsr_bam = self.config.aligned_dir / f"{run_id}_dedup.bqsr.bam"
+        dedup_bam = self.config.aligned_dir / f"{run_id}_dedup.bam"
+        bam_path = bqsr_bam if bqsr_bam.exists() else dedup_bam
+        
+        coverage_file = self.config.qc_dir / f"{run_id}_coverage_stats.txt"
+        
+        if coverage_file.exists():
+            print(f"[SKIP] Coverage stats already exist: {run_id}")
+            return True
+        
+        if not bam_path.exists():
+            print(f"[ERROR] BAM not found for coverage analysis: {bam_path}")
+            return False
+        
+        gene_config = self.config.config['variant_calling']['target_gene']
+        region = f"{gene_config['chromosome']}:{gene_config['start']}-{gene_config['end']}"
+        
+        try:
+            print(f"  Calculating coverage for {region}...")
+            
+            # Get per-base depth using samtools depth
+            depth_cmd = [
+                "samtools", "depth",
+                "-r", region,
+                "-a",  # Output all positions including zero coverage
+                str(bam_path)
+            ]
+            result = subprocess.run(depth_cmd, capture_output=True, text=True, check=True)
+            
+            # Parse depth values
+            depths = []
+            for line in result.stdout.strip().split('\n'):
+                if line:
+                    parts = line.split('\t')
+                    if len(parts) >= 3:
+                        depths.append(int(parts[2]))
+            
+            if not depths:
+                print(f"[WARNING] No coverage data for region {region}")
+                depths = [0]
+            
+            # Calculate statistics
+            depths_array = np.array(depths)
+            total_bases = len(depths_array)
+            mean_depth = np.mean(depths_array)
+            median_depth = np.median(depths_array)
+            min_depth = np.min(depths_array)
+            max_depth = np.max(depths_array)
+            
+            # Coverage thresholds (important for ctDNA)
+            thresholds = [10, 50, 100, 500, 1000]
+            coverage_at = {}
+            for t in thresholds:
+                coverage_at[t] = (depths_array >= t).sum() / total_bases * 100
+            
+            # Write stats file
+            with open(coverage_file, 'w') as f:
+                f.write(f"=== Coverage Statistics for {run_id} ===\n")
+                f.write(f"Region: {region}\n")
+                f.write(f"BAM: {bam_path.name}\n\n")
+                f.write(f"Total bases in region: {total_bases:,}\n")
+                f.write(f"Mean depth: {mean_depth:.1f}x\n")
+                f.write(f"Median depth: {median_depth:.1f}x\n")
+                f.write(f"Min depth: {min_depth}x\n")
+                f.write(f"Max depth: {max_depth}x\n\n")
+                f.write("Coverage thresholds:\n")
+                for t in thresholds:
+                    f.write(f"  >= {t}x: {coverage_at[t]:.1f}%\n")
+                
+                # Flag if coverage is insufficient for ctDNA
+                min_ctdna_coverage = self.config.config.get('variant_calling', {}).get(
+                    'filters', {}).get('min_depth', 100)
+                if median_depth < min_ctdna_coverage:
+                    f.write(f"\n⚠️  WARNING: Median coverage ({median_depth:.0f}x) below ")
+                    f.write(f"recommended minimum ({min_ctdna_coverage}x) for ctDNA analysis\n")
+            
+            print(f"[OK] Coverage stats: mean={mean_depth:.0f}x, median={median_depth:.0f}x")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            print(f"[ERROR] Coverage analysis failed: {e.stderr[:200] if e.stderr else str(e)}")
+            return False
+        except Exception as e:
+            print(f"[ERROR] Coverage analysis failed: {str(e)[:100]}")
+            return False
+
+
+    def recalibrate_base_qualities(self, run_id: str) -> bool:
+        """Recalibrate base qualities using LoFreq Viterbi.
+        
+        Uses Hidden Markov Model to recalibrate base quality scores,
+        improving accuracy of low-frequency variant detection.
+        
+        Args:
+            run_id: Sample run identifier
+            
+        Returns:
+            True if BQSR succeeded, False otherwise
+        """
+        bqsr_config = self.config.config.get('bqsr', {})
+        
+        if not bqsr_config.get('enabled', True):
+            print(f"[SKIP] BQSR disabled for {run_id}")
+            return True
+        
+        ref_path = self.config.reference_dir / self.config.config['reference_genome']['filename']
+        input_bam = self.config.aligned_dir / f"{run_id}_dedup.bam"
+        output_bam = self.config.aligned_dir / f"{run_id}_dedup.bqsr.bam"
+        stats_file = self.config.qc_dir / f"{run_id}_bqsr_stats.txt"
+        
+        if output_bam.exists():
+            print(f"[SKIP] BQSR BAM already exists: {run_id}")
+            return True
+        
+        if not input_bam.exists():
+            print(f"[ERROR] Deduplicated BAM not found: {input_bam}")
+            return False
+        
+        try:
+            # Run LoFreq Viterbi for base quality recalibration
+            print(f"  Running LoFreq Viterbi BQSR...")
+            viterbi_cmd = [
+                "lofreq", "viterbi",
+                "-f", str(ref_path),
+                "-o", str(output_bam),
+                str(input_bam)
+            ]
+            result = subprocess.run(viterbi_cmd, check=True, capture_output=True, text=True)
+            
+            # Index recalibrated BAM
+            index_cmd = ["samtools", "index", str(output_bam)]
+            subprocess.run(index_cmd, check=True, capture_output=True)
+            
+            # Generate statistics
+            with open(stats_file, 'w') as f:
+                f.write(f"=== LoFreq Viterbi BQSR Statistics ===\n")
+                f.write(f"Sample: {run_id}\n")
+                f.write(f"Input BAM: {input_bam}\n")
+                f.write(f"Output BAM: {output_bam}\n\n")
+                
+                # Get flagstat for recalibrated BAM
+                flagstat_result = subprocess.run(
+                    ["samtools", "flagstat", str(output_bam)],
+                    capture_output=True, text=True
+                )
+                f.write("Alignment statistics:\n")
+                f.write(flagstat_result.stdout)
+            
+            print(f"[OK] BQSR completed: {run_id}")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            print(f"[ERROR] BQSR failed: {e.stderr[:200] if e.stderr else str(e)}")
+            return False
+        except Exception as e:
+            print(f"[ERROR] BQSR failed: {str(e)[:100]}")
+            return False
     
     def call_variants_lofreq(self, run_id: str, dbsnp_path: Path = None) -> bool:
-        """Call variants using Lofreq."""
-
+        """Call variants using Lofreq.
+        
+        Uses BQSR-recalibrated BAM if available, otherwise falls back to
+        deduplicated BAM.
+        """
         ref_path = self.config.reference_dir / self.config.config['reference_genome']['filename']
-        bam_path = self.config.aligned_dir / f"{run_id}_dedup.bam"
+        
+        # Prefer BQSR BAM if available
+        bqsr_bam = self.config.aligned_dir / f"{run_id}_dedup.bqsr.bam"
+        dedup_bam = self.config.aligned_dir / f"{run_id}_dedup.bam"
+        
+        if bqsr_bam.exists():
+            bam_path = bqsr_bam
+            print(f"  Using BQSR-recalibrated BAM for variant calling")
+        else:
+            bam_path = dedup_bam
+            print(f"  Using deduplicated BAM (no BQSR)")
+        
         vcf_path = self.config.variants_dir / f"{run_id}.lofreq.vcf"
+
         
         if vcf_path.exists():
             print(f"[SKIP] VCF already exists: {run_id}")
@@ -360,21 +691,151 @@ class VCAPipeline:
         except Exception as e:
             print(f"[ERROR] Annotation failed: {str(e)[:100]}")
             return False
+
+    def filter_germline_variants(self, run_id: str, gnomad_path: Path) -> bool:
+        """Filter germline variants using gnomAD population frequencies.
+        
+        Uses bcftools to annotate variants with gnomAD allele frequencies
+        and filter out common germline variants (AF > threshold).
+        
+        Args:
+            run_id: Sample run identifier
+            gnomad_path: Path to gnomAD VCF file
+            
+        Returns:
+            True if filtering succeeded, False otherwise
+        """
+        germline_config = self.config.config.get('germline_filtering', {})
+        
+        if not germline_config.get('enabled', False):
+            print(f"[SKIP] Germline filtering disabled for {run_id}")
+            return True
+            
+        if gnomad_path is None or not gnomad_path.exists():
+            print(f"[WARNING] gnomAD file not available, skipping germline filter for {run_id}")
+            return True
+        
+        input_vcf = self.config.variants_dir / f"{run_id}.lofreq.ann.vcf.gz"
+        annotated_vcf = self.config.variants_dir / f"{run_id}.annotated.vcf.gz"
+        output_vcf = self.config.variants_dir / f"{run_id}.lofreq.ann.somatic.vcf.gz"
+        stats_file = self.config.variants_dir / f"{run_id}.germline_filter_stats.txt"
+        
+        if output_vcf.exists():
+            print(f"[SKIP] Somatic VCF already exists: {run_id}")
+            return True
+        
+        if not input_vcf.exists():
+            print(f"[ERROR] Annotated VCF not found: {input_vcf}")
+            return False
+        
+        max_af = germline_config.get('max_population_af', 0.01)
+        
+        try:
+            # Step 1: Annotate with gnomAD allele frequencies
+            print(f"  Annotating with gnomAD AF...")
+            annotate_cmd = [
+                "bcftools", "annotate",
+                "-a", str(gnomad_path),
+                "-c", "INFO/gnomAD_AF:=INFO/AF",
+                "-O", "z",
+                "-o", str(annotated_vcf),
+                str(input_vcf)
+            ]
+            result = subprocess.run(annotate_cmd, check=True, capture_output=True, text=True)
+            
+            # Index annotated VCF
+            subprocess.run(["tabix", "-p", "vcf", str(annotated_vcf)], check=True, capture_output=True)
+            
+            # Step 2: Filter out common germline variants
+            print(f"  Filtering germline variants (AF > {max_af})...")
+            filter_cmd = [
+                "bcftools", "filter",
+                "-e", f"INFO/gnomAD_AF > {max_af}",
+                "-s", "GERMLINE",
+                "-m", "+",
+                "-O", "z",
+                "-o", str(output_vcf),
+                str(annotated_vcf)
+            ]
+            result = subprocess.run(filter_cmd, check=True, capture_output=True, text=True)
+            
+            # Index filtered VCF
+            subprocess.run(["tabix", "-p", "vcf", str(output_vcf)], check=True, capture_output=True)
+            
+            # Generate statistics
+            before_count = subprocess.run(
+                ["bcftools", "view", "-H", str(input_vcf)],
+                capture_output=True, text=True
+            ).stdout.count('\n')
+            
+            pass_count = subprocess.run(
+                ["bcftools", "view", "-f", "PASS", "-H", str(output_vcf)],
+                capture_output=True, text=True
+            ).stdout.count('\n')
+            
+            germline_count = subprocess.run(
+                ["bcftools", "view", "-f", "GERMLINE", "-H", str(output_vcf)],
+                capture_output=True, text=True
+            ).stdout.count('\n')
+            
+            with open(stats_file, 'w') as f:
+                f.write(f"=== Germline Filter Statistics ===\n")
+                f.write(f"Sample: {run_id}\n")
+                f.write(f"Max population AF threshold: {max_af}\n\n")
+                f.write(f"Variants before filtering: {before_count}\n")
+                f.write(f"Variants after filtering (PASS): {pass_count}\n")
+                f.write(f"Variants filtered as GERMLINE: {germline_count}\n")
+            
+            # Cleanup intermediate file
+            if annotated_vcf.exists():
+                annotated_vcf.unlink()
+                Path(str(annotated_vcf) + '.tbi').unlink(missing_ok=True)
+            
+            print(f"[OK] Germline filtering completed: {run_id}")
+            print(f"     Filtered {germline_count}/{before_count} variants as germline")
+            print(f"     Remaining somatic candidates: {pass_count}")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            print(f"[ERROR] Germline filtering failed: {e.stderr[:200] if e.stderr else str(e)}")
+            return False
+        except Exception as e:
+            print(f"[ERROR] Germline filtering failed: {str(e)[:100]}")
+            return False
     
     def parse_variants(self) -> pd.DataFrame:
-        """Parse VCF files and extract variant information."""
+        """Parse VCF files and extract variant information.
+        
+        Prefers somatic (germline-filtered) VCFs if available, otherwise
+        falls back to annotated VCFs. Skips variants marked as GERMLINE.
+        """
         variants_list = []
         filters = self.config.config['variant_calling']['filters']
         min_depth = filters['min_depth']
         min_freq = filters['min_allele_frequency']
         
         for run_id, info in self.sample_info.items():
-            vcf_path = self.config.variants_dir / f"{run_id}.lofreq.ann.vcf.gz"
-            if not vcf_path.exists():
+            # Prefer somatic VCF (germline-filtered) if available
+            somatic_vcf_path = self.config.variants_dir / f"{run_id}.lofreq.ann.somatic.vcf.gz"
+            annotated_vcf_path = self.config.variants_dir / f"{run_id}.lofreq.ann.vcf.gz"
+            
+            if somatic_vcf_path.exists():
+                vcf_path = somatic_vcf_path
+                print(f"  Using somatic VCF for {run_id}")
+            elif annotated_vcf_path.exists():
+                vcf_path = annotated_vcf_path
+                print(f"  Using annotated VCF for {run_id} (no germline filtering)")
+            else:
+                print(f"  [WARNING] No VCF found for {run_id}")
                 continue
+                
             try:
                 vcf = pysam.VariantFile(str(vcf_path))
                 for record in vcf:
+                    # Skip GERMLINE-filtered variants
+                    if 'GERMLINE' in record.filter.keys():
+                        continue
+                        
                     depth = record.info.get('DP', 0)
                     if depth < min_depth:
                         continue
@@ -386,8 +847,11 @@ class VCAPipeline:
                     # Lofreq AF is in AF info field
                     af = record.info.get('AF', [0.0])[0]
                     
+                    # Get gnomAD AF if available (for reporting)
+                    gnomad_af = record.info.get('gnomAD_AF', None)
+                    
                     if af >= min_freq:
-                        variants_list.append({
+                        variant_entry = {
                             'run_id': run_id,
                             'patient_id': info['patient_id'],
                             'timepoint': info['timepoint'],
@@ -397,7 +861,10 @@ class VCAPipeline:
                             'alt': alt_alleles[0],
                             'depth': depth,
                             'allele_frequency': af
-                        })
+                        }
+                        if gnomad_af is not None:
+                            variant_entry['gnomad_af'] = gnomad_af
+                        variants_list.append(variant_entry)
                 vcf.close()
             except Exception as e:
                 print(f"[WARNING] Failed to parse VCF for {run_id}: {str(e)[:100]}")
@@ -408,6 +875,7 @@ class VCAPipeline:
         variants_df = pd.DataFrame(variants_list)
         print(f"[OK] Parsed {len(variants_df)} variants from {len(set(variants_df['run_id']))} samples")
         return variants_df
+
     
     def analyze_variants(self, variants_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
         """Identify candidate variants and generate summary statistics."""
@@ -532,6 +1000,9 @@ class VCAPipeline:
         # Download dbSNP once
         dbsnp_path = self.download_dbsnp()
         
+        # Download gnomAD for germline filtering
+        gnomad_path = self.download_gnomad()
+        
         patient_filter = self.config.config['data_source'].get('patient_id_filter', None)
 
         if patient_filter:
@@ -552,12 +1023,18 @@ class VCAPipeline:
                 continue
             if not self.remove_duplicates(run_id):
                 continue
-            if not self.remove_duplicates(run_id):
+            # Base Quality Score Recalibration (if enabled)
+            if not self.recalibrate_base_qualities(run_id):
                 continue
+            # Coverage analysis (QC)
+            if not self.calculate_coverage_stats(run_id):
+                print(f"[WARNING] Coverage analysis failed, continuing anyway")
             if not self.call_variants_lofreq(run_id, dbsnp_path):
                 continue
             if not self.annotate_variants(run_id):
-
+                continue
+            # Germline filtering (if enabled and gnomAD available)
+            if not self.filter_germline_variants(run_id, gnomad_path):
                 continue
                 
         print("\nVARIANT ANALYSIS")
@@ -571,6 +1048,7 @@ class VCAPipeline:
         print("\nPIPELINE COMPLETED")
         print("=" * 60 + "\n")
         return True
+
 
 def main():
     """Main entry point for VCA pipeline."""

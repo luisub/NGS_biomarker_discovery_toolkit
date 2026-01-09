@@ -81,6 +81,17 @@ Complete reference for all VCA Pipeline parameters.
 
 ---
 
+## Base Quality Score Recalibration (BQSR)
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--skip_bqsr` | `false` | Skip base quality score recalibration (LoFreq Viterbi) |
+| `--save_bqsr_bam` | `false` | Save BQSR-recalibrated BAM files to output directory |
+
+BQSR uses LoFreq's Viterbi algorithm to recalibrate base quality scores using a Hidden Markov Model. This improves accuracy of low-frequency variant detection by correcting systematic errors in base quality scores from the sequencer.
+
+---
+
 ## Skip Options
 
 | Parameter | Default | Description |
@@ -220,5 +231,41 @@ nextflow run main.nf \
     --genome_fasta /path/to/GRCh38.fa \
     --skip_fastqc \
     --skip_coverage \
+    -profile singularity
+```
+
+### With BQSR (Default - Recommended for ctDNA)
+
+```bash
+nextflow run main.nf \
+    --input samplesheet.csv \
+    --genome_fasta /path/to/GRCh38.fa \
+    --skip_bqsr false \
+    --save_bqsr_bam true \
+    -profile singularity
+```
+
+### Skip BQSR (Faster, Less Accurate)
+
+```bash
+nextflow run main.nf \
+    --input samplesheet.csv \
+    --genome_fasta /path/to/GRCh38.fa \
+    --skip_bqsr true \
+    -profile singularity
+```
+
+### Full ctDNA Analysis (BQSR + Germline Filter)
+
+```bash
+nextflow run main.nf \
+    --input samplesheet.csv \
+    --genome_fasta /path/to/GRCh38.fa \
+    --gnomad_vcf /path/to/gnomad.exomes.v4.0.sites.chr12.vcf.bgz \
+    --gnomad_tbi /path/to/gnomad.exomes.v4.0.sites.chr12.vcf.bgz.tbi \
+    --skip_bqsr false \
+    --skip_germline_filter false \
+    --max_population_af 0.01 \
+    --min_allele_frequency 0.01 \
     -profile singularity
 ```

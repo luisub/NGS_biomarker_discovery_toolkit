@@ -141,6 +141,7 @@ include { SAMTOOLS_INDEX                } from './modules/local/samtools'
 include { SAMTOOLS_MARKDUP              } from './modules/local/samtools'
 include { SAMTOOLS_FLAGSTAT             } from './modules/local/samtools'
 include { SAMTOOLS_FAIDX                } from './modules/local/samtools'
+include { LOFREQ_VITERBI                } from './modules/local/lofreq'
 include { LOFREQ_CALL                   } from './modules/local/lofreq'
 include { SNPEFF_ANNOTATE               } from './modules/local/snpeff'
 include { BCFTOOLS_NORM                 } from './modules/local/bcftools'
@@ -300,14 +301,27 @@ workflow {
     }
     
     // ==========================================================================
+    // Step 8d: Base Quality Score Recalibration (LoFreq Viterbi)
+    // ==========================================================================
+    ch_bqsr_stats = Channel.empty()
+    if (!params.skip_bqsr) {
+        LOFREQ_VITERBI(ch_bam_indexed, ch_fasta.collect())
+        ch_bam_for_variant_calling = LOFREQ_VITERBI.out.bam
+        ch_bqsr_stats = LOFREQ_VITERBI.out.stats
+    } else {
+        ch_bam_for_variant_calling = ch_bam_indexed
+    }
+    
+    // ==========================================================================
     // Step 9: Variant Calling (LoFreq)
     // ==========================================================================
     LOFREQ_CALL(
-        ch_bam_indexed,
+        ch_bam_for_variant_calling,
         ch_fasta.collect(),
         ch_fai.collect()
     )
     ch_lofreq_stats = LOFREQ_CALL.out.stats
+
     
     // ==========================================================================
     // Step 9b: Variant Normalization (bcftools)

@@ -75,7 +75,13 @@ nextflow run main.nf -resume
                                                          │
                                                          ▼
                                     ┌────────────────────────────────┐
-                                    │           LOFREQ               │
+                                    │      LOFREQ VITERBI (BQSR)     │
+                                    │  (Base Quality Recalibration)  │
+                                    └───────────────┬────────────────┘
+                                                    │
+                                                    ▼
+                                    ┌────────────────────────────────┐
+                                    │         LOFREQ CALL            │
                                     │  (Low-frequency variant calls) │
                                     └───────────────┬────────────────┘
                                                     │
@@ -296,7 +302,6 @@ Adjust limits with `--max_memory` and `--max_cpus`.
 | Limitation | Description |
 |------------|-------------|
 | **Research Use Only** | This pipeline is not FDA-approved for clinical diagnostics |
-| **No BQSR** | Base quality score recalibration is not yet implemented |
 | **Target Region** | Currently optimized for KRAS (chr12:25200000-25250000) |
 | **No UMI Support** | Molecular barcodes for PCR duplicate removal not supported |
 

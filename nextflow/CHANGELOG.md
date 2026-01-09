@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2026-01-09
+
+### Added
+
+- **Base Quality Score Recalibration (BQSR)**: `LOFREQ_VITERBI` process using Hidden Markov Model
+  - Recalibrates base quality scores before variant calling
+  - Improves accuracy of low-frequency variant detection
+  - Can be disabled with `--skip_bqsr true`
+  - BQSR BAMs can be saved with `--save_bqsr_bam true`
+
+### Changed
+
+- **Variant Calling**: Now uses BQSR-recalibrated BAMs by default
+- **Pipeline Flow**: BQSR step added between BAM indexing and LoFreq variant calling
+
+### New Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--skip_bqsr` | `false` | Skip base quality score recalibration |
+| `--save_bqsr_bam` | `false` | Save BQSR-recalibrated BAM files |
+
+---
+
 ## [1.1.0] - 2026-01-09
 
 ### Added
@@ -91,7 +115,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned
 
-- GATK BaseRecalibrator (BQSR) integration
 - Panel of Normals (PoN) support
 - UMI-based duplicate removal
 - OncoKB/ClinVar annotation

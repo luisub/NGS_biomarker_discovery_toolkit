@@ -11,7 +11,9 @@ This guide covers common issues and solutions when running the VCA Nextflow pipe
 3. [Resource Errors](#resource-errors)
 4. [Input/Output Errors](#inputoutput-errors)
 5. [Tool-Specific Errors](#tool-specific-errors)
-6. [HPC/Cluster Issues](#hpccluster-issues)
+6. [BQSR Issues](#bqsr-issues)
+7. [Germline Filtering Issues](#germline-filtering-issues)
+8. [HPC/Cluster Issues](#hpccluster-issues)
 
 ---
 
@@ -297,6 +299,221 @@ process {
         memory = '8 GB'
     }
 }
+```
+
+---
+
+## BQSR Issues
+
+### LoFreq Viterbi: Reference genome mismatch
+
+**Error:**
+
+```text
+[E::fai_retrieve] Region "chr12:25200000-25250000" not found in FASTA file
+```
+
+**Solution:**
+Ensure your reference genome uses the same chromosome naming convention as your BAM files:
+
+```bash
+# Check chromosome names in FASTA
+grep "^>" reference.fa | head
+
+# Check chromosome names in BAM
+samtools view -H sample.bam | grep "^@SQ" | head
+
+# If mismatch, use correct reference or rename chromosomes
+```
+
+### BQSR: Memory issues with large BAMs
+
+**Error:**
+
+```text
+Process `LOFREQ_VITERBI` terminated with exit status 137
+```
+
+**Solution:**
+
+```bash
+# Increase memory allocation
+nextflow run main.nf --max_memory '64.GB'
+```
+
+Or in `nextflow.config`:
+
+```groovy
+process {
+    withName: 'LOFREQ_VITERBI' {
+        memory = '32 GB'
+    }
+}
+```
+
+### BQSR: Skipping when not desired
+
+**Symptoms:** Pipeline skips BQSR step unexpectedly
+
+**Solution:**
+Check your parameters - BQSR runs by default unless disabled:
+
+```bash
+# Ensure BQSR is enabled (default)
+nextflow run main.nf --skip_bqsr false
+
+# To verify BQSR ran, check for .viterbi.bam files in output
+ls results/aligned/*.viterbi.bam
+```
+
+### BQSR: No improvement in variant calls
+
+**Symptoms:** Variant calls similar with/without BQSR
+
+**Possible causes:**
+
+1. High-quality input data (BQSR has less effect)
+2. Very low coverage regions
+3. Sequencing platform with accurate base qualities
+
+**Solution:**
+Compare base quality distributions before and after:
+
+```bash
+# Check BQSR stats file
+cat results/aligned/sample.viterbi_stats.txt
+
+# Compare quality scores
+samtools view input.bam | head -1000 | cut -f11 | fold -w1 | sort | uniq -c
+samtools view output.viterbi.bam | head -1000 | cut -f11 | fold -w1 | sort | uniq -c
+```
+
+---
+
+## Germline Filtering Issues
+
+### gnomAD file not found
+
+**Error:**
+
+```text
+ERROR ~ Cannot find gnomAD VCF: /path/to/gnomad.vcf.gz
+```
+
+**Solution:**
+
+```bash
+# Download gnomAD for your region (chr12 for KRAS)
+wget https://storage.googleapis.com/gcp-public-data--gnomad/release/4.0/vcf/exomes/gnomad.exomes.v4.0.sites.chr12.vcf.bgz
+wget https://storage.googleapis.com/gcp-public-data--gnomad/release/4.0/vcf/exomes/gnomad.exomes.v4.0.sites.chr12.vcf.bgz.tbi
+
+# Run with gnomAD files
+nextflow run main.nf \
+    --gnomad_vcf /path/to/gnomad.exomes.v4.0.sites.chr12.vcf.bgz \
+    --gnomad_tbi /path/to/gnomad.exomes.v4.0.sites.chr12.vcf.bgz.tbi
+```
+
+### gnomAD index missing
+
+**Error:**
+
+```text
+[E::hts_open_format] Failed to open file gnomad.vcf.gz.tbi
+```
+
+**Solution:**
+
+```bash
+# Create index if missing
+tabix -p vcf gnomad.exomes.v4.0.sites.chr12.vcf.bgz
+
+# Verify index exists
+ls -la gnomad.exomes.v4.0.sites.chr12.vcf.bgz.tbi
+```
+
+### All variants filtered as germline
+
+**Symptoms:** Empty or nearly empty somatic VCF
+
+**Possible causes:**
+
+1. AF threshold too strict
+2. Tumor sample has significant germline contamination
+3. Chromosome naming mismatch between VCF and gnomAD
+
+**Solution:**
+
+```bash
+# Increase AF threshold (allow more variants through)
+nextflow run main.nf --max_population_af 0.05
+
+# Check chromosome naming
+bcftools view -h your_variants.vcf.gz | grep "^##contig"
+bcftools view -h gnomad.vcf.gz | grep "^##contig"
+
+# Check filter statistics
+cat results/variants/sample.filter_stats.txt
+```
+
+### No variants filtered (all kept)
+
+**Symptoms:** Somatic VCF identical to input
+
+**Possible causes:**
+
+1. gnomAD file doesn't contain your variants' positions
+2. Chromosome mismatch (chr12 vs 12)
+3. gnomAD annotation failed silently
+
+**Solution:**
+
+```bash
+# Check if gnomAD contains your region
+tabix gnomad.vcf.gz chr12:25200000-25250000 | head
+
+# Check annotation worked
+bcftools query -f '%CHROM\t%POS\t%INFO/gnomAD_AF\n' annotated.vcf.gz | head
+
+# Verify chromosome naming matches
+bcftools view -H your.vcf.gz | cut -f1 | sort -u
+bcftools view -H gnomad.vcf.gz | cut -f1 | sort -u
+```
+
+### Germline filter skipped unexpectedly
+
+**Symptoms:** No `.somatic.vcf.gz` files created
+
+**Solution:**
+Germline filtering requires gnomAD files AND must be enabled:
+
+```bash
+# Enable germline filtering (disabled by default)
+nextflow run main.nf \
+    --skip_germline_filter false \
+    --gnomad_vcf /path/to/gnomad.vcf.gz \
+    --gnomad_tbi /path/to/gnomad.vcf.gz.tbi
+```
+
+### bcftools annotate: Region not found
+
+**Error:**
+
+```text
+[W::bcf_sr_add_reader] No BGZF EOF marker; file may be truncated
+```
+
+**Solution:**
+gnomAD file may be corrupted or incomplete:
+
+```bash
+# Verify file integrity
+bgzip -t gnomad.exomes.v4.0.sites.chr12.vcf.bgz
+
+# If corrupted, re-download
+wget -c https://storage.googleapis.com/gcp-public-data--gnomad/release/4.0/vcf/exomes/gnomad.exomes.v4.0.sites.chr12.vcf.bgz
+
+# Recreate index
+tabix -f -p vcf gnomad.exomes.v4.0.sites.chr12.vcf.bgz
 ```
 
 ---
