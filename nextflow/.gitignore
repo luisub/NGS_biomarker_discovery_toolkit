@@ -1,0 +1,22 @@
+# Nextflow runtime files
+.nextflow/
+.nextflow.log*
+work/
+results/
+
+# Singularity cache
+singularity_cache/
+*.sif
+
+# Test outputs
+test/results/
+test/data/*.fa.fai
+test/data/*.dict
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

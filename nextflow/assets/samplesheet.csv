@@ -1,0 +1,4 @@
+sample,fastq_1,fastq_2,patient_id,timepoint
+SRR13948001,/path/to/data/SRR13948001_1.fastq.gz,/path/to/data/SRR13948001_2.fastq.gz,CTC030,baseline
+SRR13948002,/path/to/data/SRR13948002_1.fastq.gz,/path/to/data/SRR13948002_2.fastq.gz,CTC030,follow_up_1
+SRR13948003,/path/to/data/SRR13948003_1.fastq.gz,/path/to/data/SRR13948003_2.fastq.gz,CTC030,follow_up_2
