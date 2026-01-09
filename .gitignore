@@ -162,8 +162,6 @@ coverage.xml
 # -----------------------------------------------------------------------------
 # Development Plans (internal use only)
 # -----------------------------------------------------------------------------
+todo/
 .gemini/
-TODO_PRIORITY.md
-SPRINT_*.md
-*_PRIORITY.md
 .agent/

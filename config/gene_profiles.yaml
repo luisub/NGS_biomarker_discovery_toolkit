@@ -1,0 +1,336 @@
+# Gene Profiles for NGS Biomarker Discovery Toolkit
+# 
+# This file contains pre-configured settings for common cancer genes.
+# Coordinates are based on GRCh38/hg38 reference genome.
+#
+# Usage:
+#   1. Set `target_gene: "GENE_NAME"` in config.yaml
+#   2. The pipeline will automatically use coordinates from this file
+#   3. Download the appropriate gnomAD chromosome file
+#
+# To add a new gene:
+#   1. Find coordinates on Ensembl (https://grch38.ensembl.org)
+#   2. Add entry following the format below
+#   3. Download gnomAD for the gene's chromosome
+
+# =============================================================================
+# Colorectal Cancer Panel
+# =============================================================================
+
+KRAS:
+  description: "Kirsten rat sarcoma viral oncogene - RAS/MAPK pathway"
+  chromosome: "12"
+  start: 25205246
+  end: 25250936
+  strand: "-"
+  gnomad_chromosome: "chr12"
+  transcript: "ENST00000311936"
+  protein_id: "ENSP00000256078"
+  uniprot: "P01116"
+  common_mutations:
+    - "G12D"
+    - "G12V" 
+    - "G12C"
+    - "G12A"
+    - "G13D"
+    - "Q61H"
+  clinical_significance: "EGFR therapy resistance, prognosis"
+  diseases:
+    - "Colorectal cancer"
+    - "Pancreatic cancer"
+    - "Lung adenocarcinoma"
+
+NRAS:
+  description: "NRAS proto-oncogene - RAS/MAPK pathway"
+  chromosome: "1"
+  start: 114704469
+  end: 114716771
+  strand: "-"
+  gnomad_chromosome: "chr1"
+  transcript: "ENST00000369535"
+  protein_id: "ENSP00000358548"
+  uniprot: "P01111"
+  common_mutations:
+    - "Q61R"
+    - "Q61K"
+    - "Q61L"
+    - "G12D"
+  clinical_significance: "EGFR therapy resistance"
+  diseases:
+    - "Colorectal cancer"
+    - "Melanoma"
+    - "AML"
+
+BRAF:
+  description: "B-Raf proto-oncogene - MAPK pathway"
+  chromosome: "7"
+  start: 140713328
+  end: 140924929
+  strand: "-"
+  gnomad_chromosome: "chr7"
+  transcript: "ENST00000288602"
+  protein_id: "ENSP00000288602"
+  uniprot: "P15056"
+  common_mutations:
+    - "V600E"
+    - "V600K"
+    - "V600R"
+  clinical_significance: "BRAF inhibitor sensitivity, poor prognosis in CRC"
+  diseases:
+    - "Melanoma"
+    - "Colorectal cancer"
+    - "Papillary thyroid cancer"
+
+PIK3CA:
+  description: "Phosphatidylinositol-4,5-bisphosphate 3-kinase catalytic subunit alpha"
+  chromosome: "3"
+  start: 179148114
+  end: 179240093
+  strand: "+"
+  gnomad_chromosome: "chr3"
+  transcript: "ENST00000263967"
+  protein_id: "ENSP00000263967"
+  uniprot: "P42336"
+  common_mutations:
+    - "E545K"
+    - "E542K"
+    - "H1047R"
+    - "H1047L"
+  clinical_significance: "PI3K inhibitor sensitivity"
+  diseases:
+    - "Breast cancer"
+    - "Colorectal cancer"
+    - "Endometrial cancer"
+
+APC:
+  description: "APC regulator of WNT signaling pathway"
+  chromosome: "5"
+  start: 112707505
+  end: 112846239
+  strand: "+"
+  gnomad_chromosome: "chr5"
+  transcript: "ENST00000257430"
+  protein_id: "ENSP00000257430"
+  uniprot: "P25054"
+  common_mutations:
+    - "Truncating mutations"
+    - "Frameshift mutations"
+  clinical_significance: "FAP, sporadic CRC initiation"
+  diseases:
+    - "Colorectal cancer"
+    - "Familial adenomatous polyposis"
+
+# =============================================================================
+# Lung Cancer Panel
+# =============================================================================
+
+EGFR:
+  description: "Epidermal growth factor receptor"
+  chromosome: "7"
+  start: 55019017
+  end: 55211628
+  strand: "+"
+  gnomad_chromosome: "chr7"
+  transcript: "ENST00000275493"
+  protein_id: "ENSP00000275493"
+  uniprot: "P00533"
+  common_mutations:
+    - "L858R"
+    - "T790M"
+    - "C797S"
+    - "Exon 19 deletions"
+    - "Exon 20 insertions"
+  clinical_significance: "EGFR TKI sensitivity/resistance"
+  diseases:
+    - "Non-small cell lung cancer"
+    - "Glioblastoma"
+
+ALK:
+  description: "ALK receptor tyrosine kinase"
+  chromosome: "2"
+  start: 29192774
+  end: 29921566
+  strand: "-"
+  gnomad_chromosome: "chr2"
+  transcript: "ENST00000389048"
+  protein_id: "ENSP00000373700"
+  uniprot: "Q9UM73"
+  common_mutations:
+    - "EML4-ALK fusion"
+    - "F1174L"
+    - "L1196M"
+  clinical_significance: "ALK inhibitor sensitivity"
+  diseases:
+    - "Non-small cell lung cancer"
+    - "Neuroblastoma"
+    - "Anaplastic large cell lymphoma"
+
+ROS1:
+  description: "ROS proto-oncogene 1, receptor tyrosine kinase"
+  chromosome: "6"
+  start: 117288300
+  end: 117425855
+  strand: "-"
+  gnomad_chromosome: "chr6"
+  transcript: "ENST00000368508"
+  protein_id: "ENSP00000357494"
+  uniprot: "P08922"
+  common_mutations:
+    - "CD74-ROS1 fusion"
+    - "G2032R"
+  clinical_significance: "ROS1 inhibitor sensitivity"
+  diseases:
+    - "Non-small cell lung cancer"
+
+# =============================================================================
+# Pan-Cancer Tumor Suppressors
+# =============================================================================
+
+TP53:
+  description: "Tumor protein p53 - guardian of the genome"
+  chromosome: "17"
+  start: 7668402
+  end: 7687550
+  strand: "-"
+  gnomad_chromosome: "chr17"
+  transcript: "ENST00000269305"
+  protein_id: "ENSP00000269305"
+  uniprot: "P04637"
+  common_mutations:
+    - "R175H"
+    - "R248Q"
+    - "R248W"
+    - "R273H"
+    - "R273C"
+    - "R282W"
+  clinical_significance: "Poor prognosis, therapy resistance"
+  diseases:
+    - "Most human cancers"
+    - "Li-Fraumeni syndrome"
+
+PTEN:
+  description: "Phosphatase and tensin homolog"
+  chromosome: "10"
+  start: 87862438
+  end: 87971930
+  strand: "+"
+  gnomad_chromosome: "chr10"
+  transcript: "ENST00000371953"
+  protein_id: "ENSP00000361021"
+  uniprot: "P60484"
+  common_mutations:
+    - "R130Q"
+    - "R173C"
+    - "Deletions"
+  clinical_significance: "PI3K pathway activation"
+  diseases:
+    - "Prostate cancer"
+    - "Breast cancer"
+    - "Glioblastoma"
+    - "Cowden syndrome"
+
+# =============================================================================
+# Breast Cancer Panel
+# =============================================================================
+
+BRCA1:
+  description: "BRCA1 DNA repair associated"
+  chromosome: "17"
+  start: 43044295
+  end: 43170245
+  strand: "-"
+  gnomad_chromosome: "chr17"
+  transcript: "ENST00000357654"
+  protein_id: "ENSP00000350283"
+  uniprot: "P38398"
+  common_mutations:
+    - "185delAG"
+    - "5382insC"
+  clinical_significance: "PARP inhibitor sensitivity, platinum sensitivity"
+  diseases:
+    - "Breast cancer"
+    - "Ovarian cancer"
+
+BRCA2:
+  description: "BRCA2 DNA repair associated"
+  chromosome: "13"
+  start: 32315086
+  end: 32400266
+  strand: "+"
+  gnomad_chromosome: "chr13"
+  transcript: "ENST00000380152"
+  protein_id: "ENSP00000369497"
+  uniprot: "P51587"
+  common_mutations:
+    - "6174delT"
+  clinical_significance: "PARP inhibitor sensitivity, platinum sensitivity"
+  diseases:
+    - "Breast cancer"
+    - "Ovarian cancer"
+    - "Pancreatic cancer"
+
+HER2:
+  description: "Erb-b2 receptor tyrosine kinase 2 (ERBB2)"
+  chromosome: "17"
+  start: 39687914
+  end: 39730426
+  strand: "+"
+  gnomad_chromosome: "chr17"
+  transcript: "ENST00000269571"
+  protein_id: "ENSP00000269571"
+  uniprot: "P04626"
+  common_mutations:
+    - "Amplification"
+    - "S310F"
+    - "L755S"
+  clinical_significance: "HER2-targeted therapy eligibility"
+  diseases:
+    - "Breast cancer"
+    - "Gastric cancer"
+
+# =============================================================================
+# Melanoma Panel
+# =============================================================================
+
+KIT:
+  description: "KIT proto-oncogene, receptor tyrosine kinase"
+  chromosome: "4"
+  start: 54657928
+  end: 54740715
+  strand: "+"
+  gnomad_chromosome: "chr4"
+  transcript: "ENST00000288135"
+  protein_id: "ENSP00000288135"
+  uniprot: "P10721"
+  common_mutations:
+    - "D816V"
+    - "V559D"
+  clinical_significance: "KIT inhibitor sensitivity"
+  diseases:
+    - "Melanoma (acral/mucosal)"
+    - "GIST"
+    - "Mastocytosis"
+
+# =============================================================================
+# Thyroid Cancer Panel
+# =============================================================================
+
+RET:
+  description: "Ret proto-oncogene"
+  chromosome: "10"
+  start: 43077027
+  end: 43130351
+  strand: "+"
+  gnomad_chromosome: "chr10"
+  transcript: "ENST00000355710"
+  protein_id: "ENSP00000347942"
+  uniprot: "P07949"
+  common_mutations:
+    - "M918T"
+    - "C634R"
+    - "Fusions"
+  clinical_significance: "RET inhibitor sensitivity"
+  diseases:
+    - "Medullary thyroid cancer"
+    - "MEN2 syndrome"
+    - "Non-small cell lung cancer"
