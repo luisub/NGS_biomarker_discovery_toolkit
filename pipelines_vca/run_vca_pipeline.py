@@ -31,11 +31,16 @@ except ImportError:
 
 class VCAConfig:
     """Configuration manager for VCA pipeline."""
+    
+    # Path to gene profiles relative to this file's parent directory
+    GENE_PROFILES_PATH = Path(__file__).parent.parent / 'config' / 'gene_profiles.yaml'
+    
     def __init__(self, config_path: Path):
         """Load configuration from YAML file."""
         with open(config_path, 'r') as f:
             self.config = yaml.safe_load(f)
         self._setup_paths()
+        self._load_gene_profile()
     
     def _setup_paths(self):
         """Create all required directory paths."""
@@ -51,6 +56,94 @@ class VCAConfig:
         for directory in [self.raw_dir, self.reference_dir, self.aligned_dir,
                          self.variants_dir, self.metadata_dir, self.results_dir, self.qc_dir]:
             directory.mkdir(parents=True, exist_ok=True)
+    
+    def _load_gene_profile(self) -> None:
+        """Load gene profile from gene_profiles.yaml if available.
+        
+        This method checks if a gene name is specified in the config and attempts
+        to load its coordinates from the gene profiles database. If successful,
+        it updates the config with coordinates from the profile.
+        
+        The gene profile provides:
+        - chromosome: Chromosome number (e.g., "12")
+        - start: Gene start position (GRCh38)
+        - end: Gene end position (GRCh38)
+        - gnomad_chromosome: Chromosome name for gnomAD (e.g., "chr12")
+        - transcript: Ensembl transcript ID
+        - description: Gene description
+        """
+        target_gene = self.config.get('variant_calling', {}).get('target_gene', {})
+        gene_name = target_gene.get('name')
+        
+        if not gene_name:
+            return
+        
+        # Try to load gene profile
+        gene_profile = self.get_gene_profile(gene_name)
+        
+        if gene_profile:
+            # Update config with profile data (if not manually overridden)
+            if 'chromosome' not in target_gene or target_gene.get('use_profile', True):
+                target_gene['chromosome'] = gene_profile.get('chromosome', target_gene.get('chromosome'))
+                target_gene['start'] = gene_profile.get('start', target_gene.get('start'))
+                target_gene['end'] = gene_profile.get('end', target_gene.get('end'))
+            
+            # Store additional profile data
+            target_gene['_profile'] = gene_profile
+            
+            # Update gnomAD URL based on chromosome if not manually set
+            germline_config = self.config.get('germline_filtering', {})
+            if germline_config and 'gnomad_url' not in germline_config.get('_manual', {}):
+                gnomad_chr = gene_profile.get('gnomad_chromosome', f"chr{gene_profile.get('chromosome', '12')}")
+                germline_config['gnomad_chromosome'] = gnomad_chr
+                germline_config['gnomad_url'] = (
+                    f"https://storage.googleapis.com/gcp-public-data--gnomad/release/4.0/vcf/exomes/"
+                    f"gnomad.exomes.v4.0.sites.{gnomad_chr}.vcf.bgz"
+                )
+                germline_config['gnomad_filename'] = f"gnomad.exomes.v4.0.sites.{gnomad_chr}.vcf.bgz"
+            
+            print(f"[INFO] Loaded gene profile for {gene_name}: "
+                  f"chr{target_gene['chromosome']}:{target_gene['start']}-{target_gene['end']}")
+        else:
+            print(f"[WARNING] Gene profile not found for '{gene_name}', using manual coordinates")
+    
+    def get_gene_profile(self, gene_name: str) -> Optional[Dict]:
+        """Load gene profile from gene_profiles.yaml.
+        
+        Args:
+            gene_name: Name of the gene (e.g., "KRAS", "TP53")
+            
+        Returns:
+            Dictionary with gene profile data, or None if not found
+        """
+        if not self.GENE_PROFILES_PATH.exists():
+            print(f"[WARNING] Gene profiles file not found: {self.GENE_PROFILES_PATH}")
+            return None
+        
+        try:
+            with open(self.GENE_PROFILES_PATH, 'r') as f:
+                profiles = yaml.safe_load(f)
+            return profiles.get(gene_name)
+        except Exception as e:
+            print(f"[WARNING] Error loading gene profiles: {e}")
+            return None
+    
+    def list_available_genes(self) -> List[str]:
+        """List all genes available in gene_profiles.yaml.
+        
+        Returns:
+            List of gene names
+        """
+        if not self.GENE_PROFILES_PATH.exists():
+            return []
+        
+        try:
+            with open(self.GENE_PROFILES_PATH, 'r') as f:
+                profiles = yaml.safe_load(f)
+            # Filter out comment keys (those starting with #)
+            return [k for k in profiles.keys() if not k.startswith('#')]
+        except Exception:
+            return []
 
 class VCAPipeline:
     """Main pipeline for variant calling analysis.
@@ -212,14 +305,26 @@ class VCAPipeline:
             if dbsnp_tbi.exists(): dbsnp_tbi.unlink()
             return None
 
-    def download_gnomad(self) -> Path:
+    def download_gnomad(self, chromosome: str = None) -> Path:
         """Download gnomAD VCF for germline filtering.
         
         Downloads population allele frequency data from gnomAD to filter
         common germline variants from somatic variant calls.
         
+        Args:
+            chromosome: Optional chromosome to download (e.g., "chr12", "chr17").
+                       If not specified, uses the chromosome from config (which
+                       is auto-set based on the target gene profile).
+        
         Returns:
             Path to gnomAD VCF file, or None if download fails or disabled.
+            
+        Example:
+            # Download for current target gene (auto-detected)
+            gnomad_path = pipeline.download_gnomad()
+            
+            # Download for specific chromosome
+            gnomad_path = pipeline.download_gnomad("chr17")  # For TP53
         """
         germline_config = self.config.config.get('germline_filtering', {})
         
@@ -227,8 +332,20 @@ class VCAPipeline:
             print("[SKIP] Germline filtering is disabled")
             return None
         
-        gnomad_filename = germline_config.get('gnomad_filename', 'gnomad.exomes.v4.0.sites.chr12.vcf.bgz')
-        gnomad_url = germline_config.get('gnomad_url')
+        # Determine chromosome to download
+        if chromosome:
+            # User specified a chromosome
+            gnomad_chr = chromosome if chromosome.startswith('chr') else f"chr{chromosome}"
+        else:
+            # Use configured chromosome (auto-set from gene profile)
+            gnomad_chr = germline_config.get('gnomad_chromosome', 'chr12')
+        
+        # Build filename and URL based on chromosome
+        gnomad_filename = f"gnomad.exomes.v4.0.sites.{gnomad_chr}.vcf.bgz"
+        gnomad_url = (
+            f"https://storage.googleapis.com/gcp-public-data--gnomad/release/4.0/vcf/exomes/"
+            f"{gnomad_filename}"
+        )
         
         gnomad_vcf = self.config.reference_dir / gnomad_filename
         gnomad_tbi = self.config.reference_dir / (gnomad_filename + '.tbi')
@@ -237,13 +354,14 @@ class VCAPipeline:
             print(f"[SKIP] gnomAD files already exist: {gnomad_filename}")
             return gnomad_vcf
         
-        if not gnomad_url:
-            print("[WARNING] gnomAD URL not configured, skipping download")
-            return None
-            
-        print(f"Downloading gnomAD population frequencies...")
+        # Get target gene info for context
+        target_gene = self.config.config.get('variant_calling', {}).get('target_gene', {})
+        gene_name = target_gene.get('name', 'unknown')
+        
+        print(f"Downloading gnomAD for {gnomad_chr} (gene: {gene_name})...")
         print(f"  URL: {gnomad_url}")
-        print(f"  This may take a while (~2GB for chr12)...")
+        print(f"  Destination: {gnomad_vcf}")
+        print(f"  This may take a while (file size varies by chromosome)...")
         
         try:
             # Download VCF
@@ -257,19 +375,25 @@ class VCAPipeline:
                         downloaded += len(chunk)
                         if total_size > 0:
                             pct = (downloaded / total_size) * 100
-                            print(f"\r  Progress: {pct:.1f}%", end='', flush=True)
+                            mb_downloaded = downloaded / (1024 * 1024)
+                            mb_total = total_size / (1024 * 1024)
+                            print(f"\r  Progress: {pct:.1f}% ({mb_downloaded:.0f}/{mb_total:.0f} MB)", end='', flush=True)
                 print()  # New line after progress
             
             # Download Index
             tbi_url = gnomad_url + '.tbi'
-            print(f"Downloading index from {tbi_url}...")
+            print(f"Downloading index...")
             with requests.get(tbi_url, stream=True) as r:
                 r.raise_for_status()
                 with open(gnomad_tbi, 'wb') as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         f.write(chunk)
+            
+            # Update config with downloaded file info
+            germline_config['gnomad_filename'] = gnomad_filename
+            germline_config['gnomad_chromosome'] = gnomad_chr
                         
-            print("[OK] gnomAD download completed")
+            print(f"[OK] gnomAD download completed: {gnomad_filename}")
             return gnomad_vcf
         except Exception as e:
             print(f"[WARNING] gnomAD download failed: {e}")

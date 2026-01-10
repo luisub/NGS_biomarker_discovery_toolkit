@@ -7,27 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.2.0] - 2026-01-09
+## [1.2.0] - 2026-01-10
 
 ### Added
 
-- **Base Quality Score Recalibration (BQSR)**: `LOFREQ_VITERBI` process using Hidden Markov Model
+- **Gene Profile Support**: Auto-load target gene coordinates from built-in database
+  - 15 pre-configured cancer genes (KRAS, TP53, EGFR, BRAF, etc.)
+  - Coordinates, transcripts, and descriptions for each gene
+  - Automatic gnomAD chromosome detection based on gene
+  - New config file: `conf/gene_profiles.config`
+
+- **nf-schema Input Validation**: Schema-based parameter and samplesheet validation
+  - Plugin: `nf-schema@2.1.1`
+  - Parameter schema: `nextflow_schema.json`
+  - Samplesheet schema: `assets/schema_input.json`
+  - Automatic `--help` documentation from schema
+
+- **Base Quality Score Recalibration (BQSR)**: `LOFREQ_VITERBI` process
   - Recalibrates base quality scores before variant calling
-  - Improves accuracy of low-frequency variant detection
   - Can be disabled with `--skip_bqsr true`
   - BQSR BAMs can be saved with `--save_bqsr_bam true`
 
 ### Changed
 
-- **Variant Calling**: Now uses BQSR-recalibrated BAMs by default
-- **Pipeline Flow**: BQSR step added between BAM indexing and LoFreq variant calling
+- **Execution Summary**: Now shows loaded gene profile information
+- **Pipeline Version**: Updated to 1.2.0
+- **Target Gene**: Coordinates auto-loaded from profile when `--target_gene` specified
 
 ### New Parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
+| `--target_gene` | `KRAS` | Target gene name (auto-loads coordinates) |
 | `--skip_bqsr` | `false` | Skip base quality score recalibration |
 | `--save_bqsr_bam` | `false` | Save BQSR-recalibrated BAM files |
+
+### Supported Target Genes
+
+| Gene | Chromosome | Disease Context |
+|------|------------|-----------------|
+| KRAS | chr12 | Colorectal, Pancreatic, Lung |
+| TP53 | chr17 | Pan-cancer |
+| EGFR | chr7 | Non-small cell lung cancer |
+| BRAF | chr7 | Melanoma, Colorectal |
+| PIK3CA | chr3 | Breast, Colorectal |
+| NRAS | chr1 | Colorectal, Melanoma |
+| BRCA1/2 | chr17/chr13 | Breast, Ovarian |
+| HER2 | chr17 | Breast, Gastric |
+| ALK | chr2 | Lung cancer |
+| PTEN | chr10 | Prostate, Breast |
+| And more... | | |
 
 ---
 

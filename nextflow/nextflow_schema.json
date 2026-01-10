@@ -1,0 +1,303 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/luisub/NGS_biomarker_discovery_toolkit/nextflow_schema.json",
+    "title": "VCA Pipeline Parameters",
+    "description": "Variant Calling Analysis Pipeline for Circulating Tumor DNA",
+    "type": "object",
+    "defs": {
+        "input_output_options": {
+            "title": "Input/Output Options",
+            "type": "object",
+            "description": "Define input data and output locations",
+            "required": [
+                "input"
+            ],
+            "properties": {
+                "input": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/csv",
+                    "pattern": "^\\S+\\.csv$",
+                    "description": "Path to samplesheet CSV file.",
+                    "fa_icon": "fas fa-file-csv"
+                },
+                "outdir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "default": "results",
+                    "description": "Path to output directory.",
+                    "fa_icon": "fas fa-folder-open"
+                }
+            }
+        },
+        "reference_genome_options": {
+            "title": "Reference Genome Options",
+            "type": "object",
+            "description": "Reference files for alignment and annotation",
+            "required": [
+                "genome_fasta"
+            ],
+            "properties": {
+                "genome": {
+                    "type": "string",
+                    "default": "GRCh38",
+                    "description": "Genome build (for annotation).",
+                    "enum": [
+                        "GRCh38",
+                        "GRCh37",
+                        "hg38",
+                        "hg19"
+                    ],
+                    "fa_icon": "fas fa-dna"
+                },
+                "genome_fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "pattern": "^\\S+\\.fa(sta)?(\\.gz)?$",
+                    "description": "Path to reference genome FASTA file.",
+                    "fa_icon": "fas fa-file"
+                },
+                "bwa_index": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to pre-built BWA index directory.",
+                    "fa_icon": "fas fa-database"
+                }
+            }
+        },
+        "target_gene_options": {
+            "title": "Target Gene Options",
+            "type": "object",
+            "description": "Configure target gene for analysis",
+            "properties": {
+                "target_gene": {
+                    "type": "string",
+                    "default": "KRAS",
+                    "description": "Name of target gene (e.g., KRAS, TP53, EGFR).",
+                    "enum": [
+                        "KRAS",
+                        "TP53",
+                        "EGFR",
+                        "BRAF",
+                        "PIK3CA",
+                        "NRAS",
+                        "APC",
+                        "ALK",
+                        "ROS1",
+                        "PTEN",
+                        "BRCA1",
+                        "BRCA2",
+                        "HER2",
+                        "KIT",
+                        "RET"
+                    ],
+                    "fa_icon": "fas fa-bullseye"
+                },
+                "target_chromosome": {
+                    "type": "string",
+                    "default": "chr12",
+                    "description": "Target chromosome (will be auto-detected from gene profile).",
+                    "fa_icon": "fas fa-map-marker"
+                },
+                "target_start": {
+                    "type": "integer",
+                    "default": 25200000,
+                    "description": "Target region start position.",
+                    "fa_icon": "fas fa-play"
+                },
+                "target_end": {
+                    "type": "integer",
+                    "default": 25250000,
+                    "description": "Target region end position.",
+                    "fa_icon": "fas fa-stop"
+                },
+                "target_bed": {
+                    "type": "string",
+                    "format": "file-path",
+                    "pattern": "^\\S+\\.bed$",
+                    "description": "Custom BED file with target regions.",
+                    "fa_icon": "fas fa-file"
+                }
+            }
+        },
+        "quality_options": {
+            "title": "Quality Control Options",
+            "type": "object",
+            "description": "Quality filtering parameters",
+            "properties": {
+                "min_base_quality": {
+                    "type": "integer",
+                    "default": 30,
+                    "minimum": 0,
+                    "maximum": 42,
+                    "description": "Minimum base quality score.",
+                    "fa_icon": "fas fa-chart-line"
+                },
+                "min_mapping_quality": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 0,
+                    "maximum": 60,
+                    "description": "Minimum mapping quality score.",
+                    "fa_icon": "fas fa-chart-bar"
+                },
+                "min_read_depth": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 1,
+                    "description": "Minimum read depth for variant calling.",
+                    "fa_icon": "fas fa-layer-group"
+                },
+                "min_allele_frequency": {
+                    "type": "number",
+                    "default": 0.01,
+                    "minimum": 0.0001,
+                    "maximum": 1,
+                    "description": "Minimum variant allele frequency (VAF).",
+                    "fa_icon": "fas fa-percentage"
+                }
+            }
+        },
+        "germline_filtering_options": {
+            "title": "Germline Filtering Options",
+            "type": "object",
+            "description": "Filter germline variants using population databases",
+            "properties": {
+                "gnomad_vcf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "pattern": "^\\S+\\.vcf(\\.gz|\\.bgz)?$",
+                    "description": "Path to gnomAD VCF for germline filtering.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "gnomad_tbi": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to gnomAD VCF index (.tbi).",
+                    "fa_icon": "fas fa-file"
+                },
+                "max_population_af": {
+                    "type": "number",
+                    "default": 0.01,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Maximum population allele frequency for somatic variants.",
+                    "fa_icon": "fas fa-users"
+                },
+                "skip_germline_filter": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Skip germline filtering step.",
+                    "fa_icon": "fas fa-forward"
+                }
+            }
+        },
+        "bqsr_options": {
+            "title": "Base Quality Score Recalibration",
+            "type": "object",
+            "description": "BQSR settings using LoFreq Viterbi",
+            "properties": {
+                "skip_bqsr": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip base quality score recalibration.",
+                    "fa_icon": "fas fa-forward"
+                },
+                "save_bqsr_bam": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Save BQSR-recalibrated BAM files.",
+                    "fa_icon": "fas fa-save"
+                }
+            }
+        },
+        "skip_options": {
+            "title": "Skip Options",
+            "type": "object",
+            "description": "Skip pipeline steps",
+            "properties": {
+                "skip_fastqc": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip FastQC quality control."
+                },
+                "skip_trimming": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip read trimming with fastp."
+                },
+                "skip_markdup": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip duplicate marking."
+                },
+                "skip_annotation": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip variant annotation with SnpEff."
+                },
+                "skip_multiqc": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip MultiQC report generation."
+                }
+            }
+        },
+        "resource_options": {
+            "title": "Resource Options",
+            "type": "object",
+            "description": "Maximum resource limits",
+            "properties": {
+                "max_cpus": {
+                    "type": "integer",
+                    "default": 16,
+                    "minimum": 1,
+                    "description": "Maximum CPUs per process.",
+                    "fa_icon": "fas fa-microchip"
+                },
+                "max_memory": {
+                    "type": "string",
+                    "default": "128.GB",
+                    "pattern": "^\\d+(\\.\\d+)?\\.(GB|MB|KB)$",
+                    "description": "Maximum memory per process.",
+                    "fa_icon": "fas fa-memory"
+                },
+                "max_time": {
+                    "type": "string",
+                    "default": "240.h",
+                    "pattern": "^\\d+(\\.\\d+)?\\.(h|m|s)$",
+                    "description": "Maximum time per process.",
+                    "fa_icon": "fas fa-clock"
+                }
+            }
+        }
+    },
+    "allOf": [
+        {
+            "$ref": "#/defs/input_output_options"
+        },
+        {
+            "$ref": "#/defs/reference_genome_options"
+        },
+        {
+            "$ref": "#/defs/target_gene_options"
+        },
+        {
+            "$ref": "#/defs/quality_options"
+        },
+        {
+            "$ref": "#/defs/germline_filtering_options"
+        },
+        {
+            "$ref": "#/defs/bqsr_options"
+        },
+        {
+            "$ref": "#/defs/skip_options"
+        },
+        {
+            "$ref": "#/defs/resource_options"
+        }
+    ]
+}

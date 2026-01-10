@@ -96,6 +96,29 @@ if (!params.genome_fasta && !params.bwa_index) {
 }
 
 // =============================================================================
+// Gene Profile Lookup
+// =============================================================================
+// Auto-load target coordinates from gene profile if available
+def target_chromosome = params.target_chromosome
+def target_start = params.target_start
+def target_end = params.target_end
+def target_gene_description = ''
+
+if (params.gene_profiles && params.target_gene) {
+    def profile = params.gene_profiles[params.target_gene]
+    if (profile) {
+        target_chromosome = profile.chromosome
+        target_start = profile.start
+        target_end = profile.end
+        target_gene_description = profile.description ?: ''
+        log.info "[INFO] Loaded gene profile for ${params.target_gene}: ${target_chromosome}:${target_start}-${target_end}"
+    } else {
+        log.warn "[WARNING] Gene profile not found for '${params.target_gene}', using manual coordinates"
+    }
+}
+
+
+// =============================================================================
 // Log Pipeline Info
 // =============================================================================
 log.info """
@@ -119,8 +142,9 @@ Filters:
     min map qual    : ${params.min_mapping_quality}
 
 Target region:
-    gene            : ${params.target_gene}
-    region          : ${params.target_chromosome}:${params.target_start}-${params.target_end}
+    gene            : ${params.target_gene}${target_gene_description ? " (${target_gene_description})" : ''}
+    region          : ${target_chromosome}:${target_start}-${target_end}
+    profile loaded  : ${params.gene_profiles?.containsKey(params.target_gene) ? 'Yes' : 'No (using manual coords)'}
 
 Execution:
     profile         : ${workflow.profile}

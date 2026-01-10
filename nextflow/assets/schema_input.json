@@ -1,0 +1,58 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/nf-core/rnaseq/master/assets/schema_input.json",
+    "title": "VCA Pipeline - Samplesheet Schema",
+    "description": "Schema for the samplesheet used in the VCA pipeline",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "required": [
+            "sample",
+            "fastq_1"
+        ],
+        "properties": {
+            "sample": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "meta": [
+                    "id"
+                ],
+                "description": "Sample identifier. Must be unique and contain no whitespace.",
+                "errorMessage": "Sample name must be provided and cannot contain spaces"
+            },
+            "fastq_1": {
+                "type": "string",
+                "pattern": "^\\S+\\.f(ast)?q\\.gz$",
+                "format": "file-path",
+                "description": "Path to R1 FASTQ file (gzipped). Required.",
+                "errorMessage": "R1 FASTQ file path must be provided and end with .fastq.gz or .fq.gz"
+            },
+            "fastq_2": {
+                "type": "string",
+                "pattern": "^\\S+\\.f(ast)?q\\.gz$",
+                "format": "file-path",
+                "description": "Path to R2 FASTQ file (gzipped). Optional for single-end data.",
+                "errorMessage": "R2 FASTQ file path must end with .fastq.gz or .fq.gz"
+            },
+            "patient_id": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "description": "Patient identifier for grouping samples from the same patient.",
+                "errorMessage": "Patient ID cannot contain spaces"
+            },
+            "timepoint": {
+                "type": "string",
+                "description": "Sample timepoint (e.g., baseline, follow_up_1, progression).",
+                "enum": [
+                    "baseline",
+                    "follow_up_1",
+                    "follow_up_2",
+                    "follow_up_3",
+                    "progression",
+                    "treatment",
+                    "post_treatment"
+                ]
+            }
+        }
+    }
+}
